@@ -36,3 +36,4 @@ domain:
   - This is the easyspec source repo itself — changes affect the kit distributed to other projects
   - Templates are transformed at install time per target agent tool (copilot, opencode, etc.)
   - All entity names use "es-" prefix to avoid overriding user-defined agents/prompts/skills
+  - Supported harnesses: copilot, opencode, claude-code, zcode, qoder, kilocode (qoder installs commands + skill only; kilocode keeps global skills in ~/.kilo/skills)

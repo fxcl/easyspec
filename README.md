@@ -7,7 +7,7 @@
 
 **One `init` command. A team of AI agents. Your entire software lifecycle — managed by specs, not chaos.**
 
-Supports **GitHub Copilot**, **OpenCode**, and **Claude Code**.
+Supports **GitHub Copilot**, **OpenCode**, **Claude Code**, **ZCode**, **Qoder**, and **Kilo Code**.
 
 > Built on the ideas of [OpenSpec](https://openspec.dev/) — the spec-driven development framework. Our spec format, agent delegation model, and change lifecycle are derived from OpenSpec's concepts. Thanks to the OpenSpec team.
 
@@ -52,7 +52,7 @@ You can skip the prompts with flags:
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `--agent` | `copilot`, `opencode`, `claude-code` (comma-separated for multiple) | interactive | Target coding agent(s) |
+| `--agent` | `copilot`, `opencode`, `claude-code`, `zcode`, `qoder`, `kilocode` (comma-separated for multiple) | interactive | Target coding agent(s) |
 | `--scope` | `project`, `global` | interactive | Install scope |
 | `--workspace` | `<path>` | cwd | Project folder for `--scope project` |
 | `--force` | — | false | Overwrite existing files |
@@ -72,6 +72,9 @@ Models default to **`auto`** — no need to pick one.
 | `copilot` | `<ws>/.github/prompts/*.prompt.md` | `<ws>/.github/agents/*.md` | `<ws>/.github/skills/<name>/SKILL.md` |
 | `opencode` | `<ws>/.opencode/commands/*.md` | `<ws>/.opencode/agents/*.md` | `<ws>/.opencode/skills/<name>/SKILL.md` |
 | `claude-code` | `<ws>/.claude/commands/*.md` | `<ws>/.claude/agents/*.md` | `<ws>/.claude/skills/<name>/SKILL.md` |
+| `zcode` | `<ws>/.zcode/commands/*.md` | `<ws>/.zcode/agents/*.md` | `<ws>/.zcode/skills/<name>/SKILL.md` |
+| `qoder` | `<ws>/.qoder/commands/*.md` | — (no custom agent files) | `<ws>/.qoder/skills/<name>/SKILL.md` |
+| `kilocode` | `<ws>/.kilo/commands/*.md` | `<ws>/.kilo/agents/*.md` | `<ws>/.kilo/skills/<name>/SKILL.md` |
 
 **Global scope** (`--scope global`): installed under your user profile instead of `<ws>/`.
 
@@ -80,6 +83,9 @@ Models default to **`auto`** — no need to pick one.
 | `copilot` | `~/Library/Application Support/Code/User/prompts/` (macOS) or `%APPDATA%\Code\User\prompts\` (Windows) | `~/.copilot/agents/` | `~/.copilot/skills/` |
 | `opencode` | `~/.config/opencode/commands/` | `~/.config/opencode/agents/` | `~/.config/opencode/skills/` |
 | `claude-code` | `~/.claude/commands/` | `~/.claude/agents/` | `~/.claude/skills/` |
+| `zcode` | `~/.zcode/commands/` | `~/.zcode/agents/` | `~/.zcode/skills/` |
+| `qoder` | `~/.qoder/commands/` | — (no custom agent files) | `~/.qoder/skills/` |
+| `kilocode` | `~/.config/kilo/commands/` | `~/.config/kilo/agents/` | `~/.kilo/skills/` |
 
 ### Examples
 
@@ -99,6 +105,12 @@ easyspec init --agent opencode --scope global
 # Claude Code with a model preset
 easyspec init --agent claude-code --scope project --model-preset balanced
 
+# ZCode and Qoder in one run
+easyspec init --agent zcode,qoder --scope project
+
+# Kilo Code globally (skills go to ~/.kilo/skills)
+easyspec init --agent kilocode --scope global
+
 # Preview without writing
 easyspec init --agent opencode --dry-run
 ```
@@ -110,6 +122,8 @@ easyspec init --agent opencode --dry-run
 **Agents:** `es-product-owner`, `es-ux-specialist`, `es-architect`, `es-database-designer`, `es-developer`, `es-tester`, `es-document-reviewer`
 
 **Skill:** `es-change-lifecycle`
+
+> Qoder has no user-defined agent mechanism (its official extension points are rules, commands, MCP, and skills), so for Qoder only the commands and the skill are installed.
 
 ## Acknowledgements
 

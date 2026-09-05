@@ -4,7 +4,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { multiselect, select, isCancel } from "@clack/prompts";
 
-const SUPPORTED_AGENTS = ["copilot", "opencode", "claude-code"];
+const SUPPORTED_AGENTS = ["copilot", "opencode", "claude-code", "zcode", "qoder", "kilocode"];
 
 const TOOL_PROFILES = {
   copilot: {
@@ -39,6 +39,46 @@ const TOOL_PROFILES = {
     agentExt: ".md",
     promptExt: ".md",
     templateProfile: "opencode",
+  },
+  zcode: {
+    label: "ZCode (Z.ai)",
+    projectDir: ".zcode",
+    homeDir: ".zcode",
+    agentDir: "agents",
+    promptDir: "commands",
+    skillDir: "skills",
+    agentExt: ".md",
+    promptExt: ".md",
+    templateProfile: "opencode",
+  },
+  qoder: {
+    label: "Qoder",
+    projectDir: ".qoder",
+    homeDir: ".qoder",
+    agentDir: "agents",
+    promptDir: "commands",
+    skillDir: "skills",
+    agentExt: ".md",
+    promptExt: ".md",
+    templateProfile: "opencode",
+    // Qoder has no user-defined agent mechanism (official extension points are
+    // rules, commands, MCP, and skills) — install commands + skills only.
+    skipAgents: true,
+  },
+  kilocode: {
+    label: "Kilo Code",
+    projectDir: ".kilo",
+    homeDir: ".config/kilo",
+    agentDir: "agents",
+    promptDir: "commands",
+    skillDir: "skills",
+    agentExt: ".md",
+    promptExt: ".md",
+    templateProfile: "opencode",
+    // Kilo Code (OpenCode fork) keeps global skills in ~/.kilo/skills
+    // (KilocodePaths.skillDirectories) while global commands/agents live in
+    // the XDG config dir ~/.config/kilo — hence the separate skill home.
+    globalSkillHome: ".kilo",
   },
 };
 
@@ -93,7 +133,7 @@ Usage:
   easyspec-init --help
 
 Options:
-  --agent <copilot,opencode,claude-code>
+  --agent <copilot,opencode,claude-code,zcode,qoder,kilocode>
                                   Coding agent(s) to install (comma-separated;
                                   prompts interactively if omitted)
   --scope <project|global>        Install scope (prompts interactively if omitted)
@@ -115,6 +155,8 @@ Examples:
   easyspec init --agent copilot --scope project
   easyspec init --agent copilot,claude-code --scope project
   easyspec init --agent opencode --scope global
+  easyspec init --agent zcode,qoder --scope project
+  easyspec init --agent kilocode --scope global
   easyspec init --scope project --model-preset balanced
   easyspec sync --template-profile core
 `);
@@ -476,12 +518,12 @@ function renderDirectoryContents(templateDir, destDir, contentDir, options) {
   return summary;
 }
 
-function installToRoot(rootPath, promptsDest, sourceRoot, contentRoot, agent, options) {
+function installToRoot(rootPath, promptsDest, sourceRoot, contentRoot, agent, options, skillsDestOverride) {
   const profile = TOOL_PROFILES[agent];
   const promptsSrc = path.join(sourceRoot, "prompts");
   const agentsSrc = path.join(sourceRoot, "agents");
   const agentsDest = path.join(rootPath, profile.agentDir);
-  const skillsDest = path.join(rootPath, profile.skillDir);
+  const skillsDest = skillsDestOverride ?? path.join(rootPath, profile.skillDir);
 
   const summary = {
     copied: 0,
@@ -492,7 +534,9 @@ function installToRoot(rootPath, promptsDest, sourceRoot, contentRoot, agent, op
   if (promptsDest) {
     mergeSummary(summary, renderEntitiesFromContent(promptsSrc, promptsDest, contentRoot, "prompts", profile.promptExt, options));
   }
-  mergeSummary(summary, renderEntitiesFromContent(agentsSrc, agentsDest, contentRoot, "agents", profile.agentExt, options));
+  if (!profile.skipAgents) {
+    mergeSummary(summary, renderEntitiesFromContent(agentsSrc, agentsDest, contentRoot, "agents", profile.agentExt, options));
+  }
 
   const contentSkillsDir = path.join(contentRoot, "skills");
   mergeSummary(summary, copySkillDirectory(contentSkillsDir, skillsDest, contentRoot, options));
@@ -789,7 +833,10 @@ export async function runCli(argv) {
     } else {
       const homeRoot = getHomeRoot(agent);
       const promptsDest = resolveGlobalPromptDir(agent, homeRoot);
-      installReports.push(installToRoot(homeRoot, promptsDest, sourceRoot, contentRoot, agent, options));
+      const profile = TOOL_PROFILES[agent];
+      const globalSkillBase = profile.globalSkillHome ? path.join(os.homedir(), profile.globalSkillHome) : null;
+      const skillsDestOverride = globalSkillBase ? path.join(globalSkillBase, profile.skillDir) : undefined;
+      installReports.push(installToRoot(homeRoot, promptsDest, sourceRoot, contentRoot, agent, options, skillsDestOverride));
     }
   }
 
@@ -802,7 +849,9 @@ export async function runCli(argv) {
       console.log(`  prompts -> ${report.promptsDest}`);
     }
     console.log(`  copied=${report.copied} overwritten=${report.overwritten} skipped=${report.skipped}`);
-    agentDirs.add(path.join(report.rootPath, "agents"));
+    if (!TOOL_PROFILES[report.agent].skipAgents) {
+      agentDirs.add(path.join(report.rootPath, "agents"));
+    }
   }
 
   let modelUpdates = 0;

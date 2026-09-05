@@ -36,6 +36,9 @@ const TOOL_EXT = {
   copilot: { agentExt: ".md", promptExt: ".prompt.md", promptTmpl: "_template.prompt.md", agentTmpl: "_template.agent.md" },
   opencode: { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
   "claude-code": { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
+  zcode: { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
+  qoder: { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
+  kilocode: { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
 };
 
 function readFile(...segments) {
@@ -420,6 +423,72 @@ describe("CLI e2e", () => {
     assert.ok(!fs.existsSync(path.join(tmpDir, ".claude", "prompts")), "should not install a prompts folder for claude-code");
   });
 
+  it("zcode dry-run install succeeds and reports correct counts", () => {
+    setupTmp();
+    const output = runCli("init --scope project --agent zcode --dry-run --no-model-prompt");
+    assert.ok(output.includes("copied=16"), "should copy 16 files (7 agents + 8 prompts + 1 skill)");
+    assert.ok(output.includes("agent target(s): zcode"));
+    assert.ok(output.includes("install scope: project"));
+  });
+
+  it("zcode installs commands, agents, and skills under .zcode", () => {
+    setupTmp();
+    runCli("init --scope project --agent zcode --force --no-model-prompt 2>/dev/null");
+
+    for (const agent of AGENTS) {
+      const filePath = path.join(tmpDir, ".zcode", "agents", `${agent}${TOOL_EXT.zcode.agentExt}`);
+      assert.ok(fs.existsSync(filePath), `missing agent ${agent}`);
+    }
+    for (const prompt of PROMPTS) {
+      const cmdPath = path.join(tmpDir, ".zcode", "commands", `${prompt}${TOOL_EXT.zcode.promptExt}`);
+      assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
+    }
+    assert.ok(fs.existsSync(path.join(tmpDir, ".zcode", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
+  });
+
+  it("qoder dry-run install succeeds and reports correct counts", () => {
+    setupTmp();
+    const output = runCli("init --scope project --agent qoder --dry-run --no-model-prompt");
+    assert.ok(output.includes("copied=9"), "should copy 9 files (8 commands + 1 skill, no agents for qoder)");
+    assert.ok(output.includes("agent target(s): qoder"));
+    assert.ok(output.includes("install scope: project"));
+  });
+
+  it("qoder installs commands and skills but no agents", () => {
+    setupTmp();
+    runCli("init --scope project --agent qoder --force --no-model-prompt 2>/dev/null");
+
+    for (const prompt of PROMPTS) {
+      const cmdPath = path.join(tmpDir, ".qoder", "commands", `${prompt}${TOOL_EXT.qoder.promptExt}`);
+      assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
+    }
+    assert.ok(fs.existsSync(path.join(tmpDir, ".qoder", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(!fs.existsSync(path.join(tmpDir, ".qoder", "agents")), "qoder should not create an agents folder");
+  });
+
+  it("kilocode dry-run install succeeds and reports correct counts", () => {
+    setupTmp();
+    const output = runCli("init --scope project --agent kilocode --dry-run --no-model-prompt");
+    assert.ok(output.includes("copied=16"), "should copy 16 files (7 agents + 8 prompts + 1 skill)");
+    assert.ok(output.includes("agent target(s): kilocode"));
+    assert.ok(output.includes("install scope: project"));
+  });
+
+  it("kilocode installs commands, agents, and skills under .kilo", () => {
+    setupTmp();
+    runCli("init --scope project --agent kilocode --force --no-model-prompt 2>/dev/null");
+
+    for (const agent of AGENTS) {
+      const filePath = path.join(tmpDir, ".kilo", "agents", `${agent}${TOOL_EXT.kilocode.agentExt}`);
+      assert.ok(fs.existsSync(filePath), `missing agent ${agent}`);
+    }
+    for (const prompt of PROMPTS) {
+      const cmdPath = path.join(tmpDir, ".kilo", "commands", `${prompt}${TOOL_EXT.kilocode.promptExt}`);
+      assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
+    }
+    assert.ok(fs.existsSync(path.join(tmpDir, ".kilo", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
+  });
+
   it("installs multiple agents in a single run", () => {
     setupTmp();
     const output = runCli("init --scope project --agent copilot,claude-code --dry-run --no-model-prompt");
@@ -490,6 +559,49 @@ describe("CLI e2e", () => {
     }
     assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
     assert.ok(!fs.existsSync(path.join(root, "prompts")), "claude-code should not create a prompts folder");
+  });
+
+  it("zcode global installs commands, agents, skills under ~/.zcode", { skip: process.platform === "win32" }, () => {
+    setupTmp();
+    const fakeHome = path.join(rootDir, "tests", ".fakehome");
+    runCli("init --scope global --agent zcode --force --no-model-prompt 2>/dev/null");
+
+    const root = path.join(fakeHome, ".zcode");
+    for (const prompt of PROMPTS) {
+      assert.ok(fs.existsSync(path.join(root, "commands", `${prompt}.md`)), `missing global command ${prompt}.md`);
+    }
+    for (const agent of AGENTS) {
+      assert.ok(fs.existsSync(path.join(root, "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
+    }
+    assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
+  });
+
+  it("qoder global installs commands and skills under ~/.qoder", { skip: process.platform === "win32" }, () => {
+    setupTmp();
+    const fakeHome = path.join(rootDir, "tests", ".fakehome");
+    runCli("init --scope global --agent qoder --force --no-model-prompt 2>/dev/null");
+
+    const root = path.join(fakeHome, ".qoder");
+    for (const prompt of PROMPTS) {
+      assert.ok(fs.existsSync(path.join(root, "commands", `${prompt}.md`)), `missing global command ${prompt}.md`);
+    }
+    assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(!fs.existsSync(path.join(root, "agents")), "qoder should not create a global agents folder");
+  });
+
+  it("kilocode global installs commands/agents under ~/.config/kilo and skills under ~/.kilo", { skip: process.platform === "win32" }, () => {
+    setupTmp();
+    const fakeHome = path.join(rootDir, "tests", ".fakehome");
+    runCli("init --scope global --agent kilocode --force --no-model-prompt 2>/dev/null");
+
+    const configRoot = path.join(fakeHome, ".config", "kilo");
+    for (const prompt of PROMPTS) {
+      assert.ok(fs.existsSync(path.join(configRoot, "commands", `${prompt}.md`)), `missing global command ${prompt}.md`);
+    }
+    for (const agent of AGENTS) {
+      assert.ok(fs.existsSync(path.join(configRoot, "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
+    }
+    assert.ok(fs.existsSync(path.join(fakeHome, ".kilo", "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill under ~/.kilo/skills");
   });
 
   it("help command runs without error", () => {
