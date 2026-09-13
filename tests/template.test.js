@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
+import { parseFrontmatter, copilotUserPromptDir } from "../src/cli.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -22,18 +23,19 @@ const AGENTS = [
 ];
 
 const PROMPTS = [
-  "es-change-apply",
-  "es-change-fix",
-  "es-change-init",
-  "es-change-propose",
-  "es-change-refinement",
+  "es-implement",
+  "es-archive",
+  "es-fix",
+  "es-init",
+  "es-propose",
+  "es-refinement",
   "es-master-review",
-  "es-change-update-master",
+  "es-update-master",
   "es-quick-fix",
 ];
 
 const TOOL_EXT = {
-  copilot: { agentExt: ".md", promptExt: ".prompt.md", promptTmpl: "_template.prompt.md", agentTmpl: "_template.agent.md" },
+  copilot: { agentExt: ".agent.md", promptExt: ".prompt.md", promptTmpl: "_template.prompt.md", agentTmpl: "_template.agent.md" },
   opencode: { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
   "claude-code": { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
   zcode: { agentExt: ".md", promptExt: ".md", promptTmpl: "_template.md", agentTmpl: "_template.md" },
@@ -49,51 +51,14 @@ function fileExists(...segments) {
   return fs.existsSync(path.join(...segments));
 }
 
-function parseFrontmatter(content) {
-  if (!content.startsWith("---\n")) {
-    return { frontmatter: {}, body: content };
-  }
-  const closeIdx = content.indexOf("\n---\n", 4);
-  if (closeIdx === -1) {
-    return { frontmatter: {}, body: content };
-  }
-  const fmBlock = content.slice(4, closeIdx);
-  const body = content.slice(closeIdx + 5);
-  const frontmatter = {};
-  for (const line of fmBlock.split("\n")) {
-    const colonIdx = line.indexOf(":");
-    if (colonIdx === -1) continue;
-    const key = line.slice(0, colonIdx).trim();
-    let value = line.slice(colonIdx + 1).trim();
-    if ((value.startsWith("'") && value.endsWith("'")) ||
-        (value.startsWith('"') && value.endsWith('"'))) {
-      value = value.slice(1, -1);
-    }
-    frontmatter[key] = value;
-  }
-  return { frontmatter, body };
-}
-
-// Mirror of the CLI's Copilot user-level prompt directory resolution,
-// kept in sync so tests stay platform-aware without reimplementing logic.
-function copilotUserPromptDir(homeDir) {
-  if (process.platform === "win32") {
-    const appData = process.env.APPDATA;
-    return appData ? path.join(appData, "Code", "User", "prompts") : null;
-  }
-  if (process.platform === "darwin") {
-    return path.join(homeDir, "Library", "Application Support", "Code", "User", "prompts");
-  }
-  return path.join(homeDir, ".config", "Code", "User", "prompts");
-}
-
 // ——— Template Structure Tests ———
 
 describe("template structure", () => {
-  it("content directory exists with agents, prompts, skills", () => {
+  it("content directory exists with agents, prompts, skills, rules", () => {
     assert.ok(fileExists(contentDir, "agents"));
     assert.ok(fileExists(contentDir, "prompts"));
     assert.ok(fileExists(contentDir, "skills"));
+    assert.ok(fileExists(contentDir, "rules"));
   });
 
   it("all content agent body files exist", () => {
@@ -115,8 +80,8 @@ describe("template structure", () => {
   });
 
   it("skill body and template exist", () => {
-    assert.ok(fileExists(contentDir, "skills", "es-change-lifecycle", "SKILL.body.md"));
-    assert.ok(fileExists(contentDir, "skills", "es-change-lifecycle", "SKILL.md"));
+    assert.ok(fileExists(contentDir, "skills", "es-lifecycle", "SKILL.body.md"));
+    assert.ok(fileExists(contentDir, "skills", "es-lifecycle", "SKILL.md"));
   });
 });
 
@@ -197,6 +162,17 @@ describe("content body integrity", () => {
       assert.ok(frontmatter.tools, `${agent}.body.md: missing tools in frontmatter`);
     }
   });
+
+  it("frontmatter descriptions avoid YAML-breaking quote characters", () => {
+    for (const prompt of PROMPTS) {
+      const { frontmatter } = parseFrontmatter(readFile(contentDir, "prompts", `${prompt}.body.md`));
+      assert.ok(!/['"]/.test(frontmatter.description || ""), `${prompt}: description contains a quote character`);
+    }
+    for (const agent of AGENTS) {
+      const { frontmatter } = parseFrontmatter(readFile(contentDir, "agents", `${agent}.body.md`));
+      assert.ok(!/['"]/.test(frontmatter.description || ""), `${agent}: description contains a quote character`);
+    }
+  });
 });
 
 // ——— Template Rendering ———
@@ -234,8 +210,8 @@ describe("template rendering", () => {
   });
 
   it("renders opencode prompt without model or tools", () => {
-    const rendered = renderFromBody("opencode", "prompts", "es-change-init");
-    assert.ok(rendered.startsWith("---\nname: es-change-init"));
+    const rendered = renderFromBody("opencode", "prompts", "es-init");
+    assert.ok(rendered.startsWith("---\nname: es-init"));
     assert.ok(!rendered.includes("model:"));
     assert.ok(!rendered.includes("tools:"));
   });
@@ -262,7 +238,7 @@ describe("cross-reference consistency", () => {
     const bodyFiles = [
       ...AGENTS.map((a) => path.join(contentDir, "agents", `${a}.body.md`)),
       ...PROMPTS.map((p) => path.join(contentDir, "prompts", `${p}.body.md`)),
-      path.join(contentDir, "skills", "es-change-lifecycle", "SKILL.body.md"),
+      path.join(contentDir, "skills", "es-lifecycle", "SKILL.body.md"),
     ];
 
     const unprefixed = /\*\*(architect|database-designer|developer|document-reviewer|product-owner|tester|ux-specialist)\s+agent\*\*/gi;
@@ -278,12 +254,12 @@ describe("cross-reference consistency", () => {
     }
   });
 
-  it("all command references use kebab-case es-change- prefix (not colon)", () => {
+  it("all command references use kebab-case es- prefix (not colon)", () => {
     const bodyFiles = PROMPTS.map((p) => path.join(contentDir, "prompts", `${p}.body.md`));
 
     for (const file of bodyFiles) {
       const content = readFile(file);
-      const colonRefs = content.match(/\/es-change:/g);
+      const colonRefs = content.match(/\/es-[a-z-]+:/g);
       assert.strictEqual(
         colonRefs?.length ?? 0,
         0,
@@ -292,8 +268,26 @@ describe("cross-reference consistency", () => {
     }
   });
 
+  it("no stale es-change- names remain anywhere in content", () => {
+    const bodyFiles = [
+      ...AGENTS.map((a) => path.join(contentDir, "agents", `${a}.body.md`)),
+      ...PROMPTS.map((p) => path.join(contentDir, "prompts", `${p}.body.md`)),
+      path.join(contentDir, "skills", "es-lifecycle", "SKILL.body.md"),
+      path.join(contentDir, "skills", "es-lifecycle", "SKILL.md"),
+      path.join(contentDir, "rules", "es-conventions.body.md"),
+    ];
+
+    for (const file of bodyFiles) {
+      const content = readFile(file);
+      assert.ok(
+        !content.includes("es-change"),
+        `${path.basename(file)}: stale es-change reference found`
+      );
+    }
+  });
+
   it("YAML agents_complete uses es- prefixed kebab-case names", () => {
-    const skillBody = readFile(contentDir, "skills", "es-change-lifecycle", "SKILL.body.md");
+    const skillBody = readFile(contentDir, "skills", "es-lifecycle", "SKILL.body.md");
     const badYaml = /(?<!es-)architect:|(?<!es-)product.owner:|(?<!es-)database.designer:|(?<!es-)document.reviewer:|(?<!es-)developer:|(?<!es-)tester:|(?<!es-)ux.specialist:/gi;
     const matches = [...skillBody.matchAll(badYaml)];
     assert.strictEqual(matches.length, 0,
@@ -311,6 +305,7 @@ describe("CLI e2e", () => {
       cwd: tmpDir,
       encoding: "utf8",
       env: { ...process.env, HOME: path.join(rootDir, "tests", ".fakehome") },
+      stdio: ["ignore", "pipe", "ignore"],
     });
   }
 
@@ -322,23 +317,23 @@ describe("CLI e2e", () => {
 
   it("copilot dry-run install succeeds and reports correct counts", () => {
     setupTmp();
-    const output = runCli("init --scope project --agent copilot --dry-run --no-model-prompt");
-    assert.ok(output.includes("copied=16"), "should copy 16 files (7 agents + 8 prompts + 1 skill)");
+    const output = runCli("init --scope project --agent copilot --dry-run");
+    assert.ok(output.includes("copied=17"), "should copy 17 files (7 agents + 9 prompts + 1 skill)");
     assert.ok(output.includes("agent target(s): copilot"));
     assert.ok(output.includes("install scope: project"));
   });
 
   it("opencode dry-run install succeeds and reports correct counts", () => {
     setupTmp();
-    const output = runCli("init --scope project --agent opencode --dry-run --no-model-prompt");
-    assert.ok(output.includes("copied=16"), "should copy 16 files");
+    const output = runCli("init --scope project --agent opencode --dry-run");
+    assert.ok(output.includes("copied=18"), "should copy 18 files (7 agents + 9 commands + 1 skill + 1 rule)");
     assert.ok(output.includes("agent target(s): opencode"));
     assert.ok(output.includes("install scope: project"));
   });
 
   it("opencode installed agents have no model or tools fields", () => {
     setupTmp();
-    runCli("init --scope project --agent opencode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent opencode --force");
 
     for (const agent of AGENTS) {
       const filePath = path.join(tmpDir, ".opencode", "agents", `${agent}${TOOL_EXT.opencode.agentExt}`);
@@ -353,7 +348,7 @@ describe("CLI e2e", () => {
 
   it("copilot installed agents have model and tools fields", () => {
     setupTmp();
-    runCli("init --scope project --agent copilot --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent copilot --force");
 
     for (const agent of AGENTS) {
       const filePath = path.join(tmpDir, ".github", "agents", `${agent}${TOOL_EXT.copilot.agentExt}`);
@@ -380,13 +375,13 @@ describe("CLI e2e", () => {
 
   it("installed skill exists and has correct frontmatter", () => {
     setupTmp();
-    runCli("init --scope project --agent opencode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent opencode --force");
 
-    const skillPath = path.join(tmpDir, ".opencode", "skills", "es-change-lifecycle", "SKILL.md");
+    const skillPath = path.join(tmpDir, ".opencode", "skills", "es-lifecycle", "SKILL.md");
     assert.ok(fs.existsSync(skillPath), "skill not installed");
 
     const content = readFile(skillPath);
-    assert.ok(content.includes("name: es-change-lifecycle"));
+    assert.ok(content.includes("name: es-lifecycle"));
     assert.ok(content.includes("description:"));
     assert.ok(content.includes("license: MIT"));
     assert.ok(!content.includes("{{body}}"), "should not contain unreplaced {{body}} marker");
@@ -395,8 +390,8 @@ describe("CLI e2e", () => {
 
   it("installed content is identical between copilot and opencode except frontmatter", () => {
     setupTmp();
-    runCli("init --scope project --agent copilot --force --no-model-prompt 2>/dev/null");
-    runCli("init --scope project --agent opencode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent copilot --force");
+    runCli("init --scope project --agent opencode --force");
 
     for (const agent of AGENTS) {
       const cBody = readFile(path.join(tmpDir, ".github", "agents", `${agent}${TOOL_EXT.copilot.agentExt}`))
@@ -407,9 +402,9 @@ describe("CLI e2e", () => {
     }
   });
 
-  it("claude-code installs commands (not prompts) and .md agents", () => {
+  it("claude-code installs commands (not prompts), .md agents, and rules", () => {
     setupTmp();
-    runCli("init --scope project --agent claude-code --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent claude-code --force");
 
     for (const agent of AGENTS) {
       const filePath = path.join(tmpDir, ".claude", "agents", `${agent}${TOOL_EXT["claude-code"].agentExt}`);
@@ -419,21 +414,22 @@ describe("CLI e2e", () => {
       const cmdPath = path.join(tmpDir, ".claude", "commands", `${prompt}${TOOL_EXT["claude-code"].promptExt}`);
       assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
     }
-    assert.ok(fs.existsSync(path.join(tmpDir, ".claude", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".claude", "skills", "es-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".claude", "rules", "es-conventions.md")), "missing claude-code rule");
     assert.ok(!fs.existsSync(path.join(tmpDir, ".claude", "prompts")), "should not install a prompts folder for claude-code");
   });
 
   it("zcode dry-run install succeeds and reports correct counts", () => {
     setupTmp();
-    const output = runCli("init --scope project --agent zcode --dry-run --no-model-prompt");
-    assert.ok(output.includes("copied=16"), "should copy 16 files (7 agents + 8 prompts + 1 skill)");
+    const output = runCli("init --scope project --agent zcode --dry-run");
+    assert.ok(output.includes("copied=18"), "should copy 18 files (7 agents + 9 commands + 1 skill + 1 rule)");
     assert.ok(output.includes("agent target(s): zcode"));
     assert.ok(output.includes("install scope: project"));
   });
 
-  it("zcode installs commands, agents, and skills under .zcode", () => {
+  it("zcode installs commands, agents, skills, and rules under .zcode", () => {
     setupTmp();
-    runCli("init --scope project --agent zcode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent zcode --force");
 
     for (const agent of AGENTS) {
       const filePath = path.join(tmpDir, ".zcode", "agents", `${agent}${TOOL_EXT.zcode.agentExt}`);
@@ -443,40 +439,45 @@ describe("CLI e2e", () => {
       const cmdPath = path.join(tmpDir, ".zcode", "commands", `${prompt}${TOOL_EXT.zcode.promptExt}`);
       assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
     }
-    assert.ok(fs.existsSync(path.join(tmpDir, ".zcode", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".zcode", "skills", "es-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".zcode", "rules", "es-conventions.md")), "missing zcode rule");
   });
 
   it("qoder dry-run install succeeds and reports correct counts", () => {
     setupTmp();
-    const output = runCli("init --scope project --agent qoder --dry-run --no-model-prompt");
-    assert.ok(output.includes("copied=9"), "should copy 9 files (8 commands + 1 skill, no agents for qoder)");
+    const output = runCli("init --scope project --agent qoder --dry-run");
+    assert.ok(output.includes("copied=18"), "should copy 18 files (9 commands + 7 agents + 1 skill + 1 rule)");
     assert.ok(output.includes("agent target(s): qoder"));
     assert.ok(output.includes("install scope: project"));
   });
 
-  it("qoder installs commands and skills but no agents", () => {
+  it("qoder installs commands, agents, skills, and rules", () => {
     setupTmp();
-    runCli("init --scope project --agent qoder --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent qoder --force");
 
     for (const prompt of PROMPTS) {
       const cmdPath = path.join(tmpDir, ".qoder", "commands", `${prompt}${TOOL_EXT.qoder.promptExt}`);
       assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
     }
-    assert.ok(fs.existsSync(path.join(tmpDir, ".qoder", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
-    assert.ok(!fs.existsSync(path.join(tmpDir, ".qoder", "agents")), "qoder should not create an agents folder");
+    for (const agent of AGENTS) {
+      const agentPath = path.join(tmpDir, ".qoder", "agents", `${agent}${TOOL_EXT.qoder.agentExt}`);
+      assert.ok(fs.existsSync(agentPath), `missing qoder agent ${agent}`);
+    }
+    assert.ok(fs.existsSync(path.join(tmpDir, ".qoder", "skills", "es-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".qoder", "rules", "es-conventions.md")), "missing qoder rule");
   });
 
   it("kilocode dry-run install succeeds and reports correct counts", () => {
     setupTmp();
-    const output = runCli("init --scope project --agent kilocode --dry-run --no-model-prompt");
-    assert.ok(output.includes("copied=16"), "should copy 16 files (7 agents + 8 prompts + 1 skill)");
+    const output = runCli("init --scope project --agent kilocode --dry-run");
+    assert.ok(output.includes("copied=18"), "should copy 18 files (7 agents + 9 commands + 1 skill + 1 rule)");
     assert.ok(output.includes("agent target(s): kilocode"));
     assert.ok(output.includes("install scope: project"));
   });
 
-  it("kilocode installs commands, agents, and skills under .kilo", () => {
+  it("kilocode installs commands, agents, skills, and rules under .kilo", () => {
     setupTmp();
-    runCli("init --scope project --agent kilocode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent kilocode --force");
 
     for (const agent of AGENTS) {
       const filePath = path.join(tmpDir, ".kilo", "agents", `${agent}${TOOL_EXT.kilocode.agentExt}`);
@@ -486,27 +487,26 @@ describe("CLI e2e", () => {
       const cmdPath = path.join(tmpDir, ".kilo", "commands", `${prompt}${TOOL_EXT.kilocode.promptExt}`);
       assert.ok(fs.existsSync(cmdPath), `missing command ${prompt}`);
     }
-    assert.ok(fs.existsSync(path.join(tmpDir, ".kilo", "skills", "es-change-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".kilo", "skills", "es-lifecycle", "SKILL.md")), "missing skill");
+    assert.ok(fs.existsSync(path.join(tmpDir, ".kilo", "rules", "es-conventions.md")), "missing kilocode rule");
   });
 
   it("installs multiple agents in a single run", () => {
     setupTmp();
-    const output = runCli("init --scope project --agent copilot,claude-code --dry-run --no-model-prompt");
+    const output = runCli("init --scope project --agent copilot,claude-code --dry-run");
     assert.ok(output.includes("agent target(s): copilot, claude-code"));
-    assert.ok(output.includes("copied=16"));
+    assert.ok(output.includes("copied=17"));
   });
 
-  it("copilot project installs agents as .md (not .agent.md)", () => {
+  it("copilot project installs agents with the official .agent.md extension", () => {
     setupTmp();
-    runCli("init --scope project --agent copilot --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope project --agent copilot --force");
 
     const agentsDir = path.join(tmpDir, ".github", "agents");
     for (const agent of AGENTS) {
-      assert.ok(fs.existsSync(path.join(agentsDir, `${agent}.md`)), `missing ${agent}.md`);
-      assert.ok(!fs.existsSync(path.join(agentsDir, `${agent}.agent.md`)), `${agent}.agent.md should not exist`);
+      assert.ok(fs.existsSync(path.join(agentsDir, `${agent}.agent.md`)), `missing ${agent}.agent.md`);
+      assert.ok(!fs.existsSync(path.join(agentsDir, `${agent}.md`)), `${agent}.md should not exist (official extension is .agent.md)`);
     }
-    const stale = fs.readdirSync(agentsDir).filter((f) => f.endsWith(".agent.md"));
-    assert.strictEqual(stale.length, 0, "no .agent.md files should be installed for copilot");
 
     for (const prompt of PROMPTS) {
       assert.ok(fs.existsSync(path.join(tmpDir, ".github", "prompts", `${prompt}.prompt.md`)), `missing ${prompt}.prompt.md`);
@@ -516,7 +516,7 @@ describe("CLI e2e", () => {
   it("copilot global installs prompts to VS Code user dir and agents/skills under ~/.copilot", { skip: process.platform === "win32" }, () => {
     setupTmp();
     const fakeHome = path.join(rootDir, "tests", ".fakehome");
-    runCli("init --scope global --agent copilot --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope global --agent copilot --force");
 
     const promptDir = copilotUserPromptDir(fakeHome);
     assert.ok(promptDir, "unable to resolve copilot user prompt dir");
@@ -524,16 +524,16 @@ describe("CLI e2e", () => {
       assert.ok(fs.existsSync(path.join(promptDir, `${prompt}.prompt.md`)), `missing global prompt ${prompt}.prompt.md`);
     }
     for (const agent of AGENTS) {
-      assert.ok(fs.existsSync(path.join(fakeHome, ".copilot", "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
+      assert.ok(fs.existsSync(path.join(fakeHome, ".copilot", "agents", `${agent}.agent.md`)), `missing global agent ${agent}.agent.md`);
     }
-    assert.ok(fs.existsSync(path.join(fakeHome, ".copilot", "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(fakeHome, ".copilot", "skills", "es-lifecycle", "SKILL.md")), "missing global skill");
     assert.ok(!fs.existsSync(path.join(fakeHome, ".copilot", "prompts")), "copilot prompts should not go under ~/.copilot");
   });
 
-  it("opencode global installs commands, agents, skills under ~/.config/opencode", { skip: process.platform === "win32" }, () => {
+  it("opencode global installs commands, agents, skills, and rules under ~/.config/opencode", { skip: process.platform === "win32" }, () => {
     setupTmp();
     const fakeHome = path.join(rootDir, "tests", ".fakehome");
-    runCli("init --scope global --agent opencode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope global --agent opencode --force");
 
     const root = path.join(fakeHome, ".config", "opencode");
     for (const prompt of PROMPTS) {
@@ -542,13 +542,14 @@ describe("CLI e2e", () => {
     for (const agent of AGENTS) {
       assert.ok(fs.existsSync(path.join(root, "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
     }
-    assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "skills", "es-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "rules", "es-conventions.md")), "missing global opencode rule");
   });
 
   it("claude-code global installs commands, agents, skills under ~/.claude", { skip: process.platform === "win32" }, () => {
     setupTmp();
     const fakeHome = path.join(rootDir, "tests", ".fakehome");
-    runCli("init --scope global --agent claude-code --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope global --agent claude-code --force");
 
     const root = path.join(fakeHome, ".claude");
     for (const prompt of PROMPTS) {
@@ -557,14 +558,15 @@ describe("CLI e2e", () => {
     for (const agent of AGENTS) {
       assert.ok(fs.existsSync(path.join(root, "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
     }
-    assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "skills", "es-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "rules", "es-conventions.md")), "missing global claude-code rule");
     assert.ok(!fs.existsSync(path.join(root, "prompts")), "claude-code should not create a prompts folder");
   });
 
-  it("zcode global installs commands, agents, skills under ~/.zcode", { skip: process.platform === "win32" }, () => {
+  it("zcode global installs commands, agents, skills, and rules under ~/.zcode", { skip: process.platform === "win32" }, () => {
     setupTmp();
     const fakeHome = path.join(rootDir, "tests", ".fakehome");
-    runCli("init --scope global --agent zcode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope global --agent zcode --force");
 
     const root = path.join(fakeHome, ".zcode");
     for (const prompt of PROMPTS) {
@@ -573,26 +575,30 @@ describe("CLI e2e", () => {
     for (const agent of AGENTS) {
       assert.ok(fs.existsSync(path.join(root, "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
     }
-    assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "skills", "es-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "rules", "es-conventions.md")), "missing global zcode rule");
   });
 
   it("qoder global installs commands and skills under ~/.qoder", { skip: process.platform === "win32" }, () => {
     setupTmp();
     const fakeHome = path.join(rootDir, "tests", ".fakehome");
-    runCli("init --scope global --agent qoder --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope global --agent qoder --force");
 
     const root = path.join(fakeHome, ".qoder");
     for (const prompt of PROMPTS) {
       assert.ok(fs.existsSync(path.join(root, "commands", `${prompt}.md`)), `missing global command ${prompt}.md`);
     }
-    assert.ok(fs.existsSync(path.join(root, "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill");
-    assert.ok(!fs.existsSync(path.join(root, "agents")), "qoder should not create a global agents folder");
+    for (const agent of AGENTS) {
+      assert.ok(fs.existsSync(path.join(root, "agents", `${agent}.md`)), `missing global qoder agent ${agent}.md`);
+    }
+    assert.ok(fs.existsSync(path.join(root, "skills", "es-lifecycle", "SKILL.md")), "missing global skill");
+    assert.ok(fs.existsSync(path.join(root, "rules", "es-conventions.md")), "missing global qoder rule");
   });
 
-  it("kilocode global installs commands/agents under ~/.config/kilo and skills under ~/.kilo", { skip: process.platform === "win32" }, () => {
+  it("kilocode global installs commands/agents/rules under ~/.config/kilo and skills under ~/.kilo", { skip: process.platform === "win32" }, () => {
     setupTmp();
     const fakeHome = path.join(rootDir, "tests", ".fakehome");
-    runCli("init --scope global --agent kilocode --force --no-model-prompt 2>/dev/null");
+    runCli("init --scope global --agent kilocode --force");
 
     const configRoot = path.join(fakeHome, ".config", "kilo");
     for (const prompt of PROMPTS) {
@@ -601,7 +607,65 @@ describe("CLI e2e", () => {
     for (const agent of AGENTS) {
       assert.ok(fs.existsSync(path.join(configRoot, "agents", `${agent}.md`)), `missing global agent ${agent}.md`);
     }
-    assert.ok(fs.existsSync(path.join(fakeHome, ".kilo", "skills", "es-change-lifecycle", "SKILL.md")), "missing global skill under ~/.kilo/skills");
+    assert.ok(fs.existsSync(path.join(configRoot, "rules", "es-conventions.md")), "missing global kilocode rule");
+    assert.ok(fs.existsSync(path.join(fakeHome, ".kilo", "skills", "es-lifecycle", "SKILL.md")), "missing global skill under ~/.kilo/skills");
+  });
+
+  it("dry-run lists every file it would write", () => {
+    setupTmp();
+    const output = runCli("init --scope project --agent copilot --dry-run");
+    assert.ok(output.includes("[create]"), "dry-run should list per-file actions");
+    assert.ok(output.includes(path.join(tmpDir, ".github", "prompts", "es-implement.prompt.md")));
+  });
+
+  it("missing option value fails with a friendly error", () => {
+    try {
+      execSync(`node "${cliPath}" init --agent`, {
+        encoding: "utf8",
+        stdio: "pipe",
+        timeout: 5000,
+      });
+      assert.fail("should have thrown");
+    } catch (err) {
+      const output = (err.stderr || "") + (err.stdout || "") + (err.message || "");
+      assert.ok(output.includes("Missing value for --agent"), `expected friendly error, got: ${output.slice(0, 300)}`);
+    }
+  });
+
+  it("list reports installed entities after install", () => {
+    setupTmp();
+    runCli("init --scope project --agent copilot --force");
+    const output = runCli("list --scope project --agent copilot");
+    assert.ok(output.includes("copilot (project)"));
+    assert.ok(output.includes("prompts"), "should report prompts category");
+    assert.ok(output.includes("agents   complete (7)"), "agents should be complete (.agent.md names must resolve)");
+    assert.ok(output.includes("complete"), "all expected entities should be present");
+    assert.ok(!output.includes("missing"), "nothing should be reported as missing");
+  });
+
+  it("list reports missing entities before install", () => {
+    setupTmp();
+    const output = runCli("list --scope project --agent qoder");
+    assert.ok(output.includes("missing"));
+  });
+
+  it("uninstall removes es-* files for the selected harness only", () => {
+    setupTmp();
+    runCli("init --scope project --agent copilot --force");
+    runCli("init --scope project --agent opencode --force");
+    const output = runCli("uninstall --scope project --agent copilot");
+    assert.ok(output.includes("removed"));
+    assert.ok(!fs.existsSync(path.join(tmpDir, ".github", "prompts", "es-implement.prompt.md")));
+    assert.ok(!fs.existsSync(path.join(tmpDir, ".github", "skills", "es-lifecycle", "SKILL.md")));
+    assert.ok(fs.existsSync(path.join(tmpDir, ".opencode", "commands", "es-implement.md")), "opencode files must survive");
+  });
+
+  it("uninstall dry-run removes nothing", () => {
+    setupTmp();
+    runCli("init --scope project --agent copilot --force");
+    const output = runCli("uninstall --scope project --agent copilot --dry-run");
+    assert.ok(output.includes("would remove"));
+    assert.ok(fs.existsSync(path.join(tmpDir, ".github", "prompts", "es-implement.prompt.md")));
   });
 
   it("help command runs without error", () => {
@@ -612,7 +676,7 @@ describe("CLI e2e", () => {
 
   it("unknown command shows error", () => {
     try {
-      execSync(`node "${cliPath}" nonexistent --no-model-prompt`, {
+      execSync(`node "${cliPath}" nonexistent --`, {
         encoding: "utf8",
         stdio: "pipe",
         timeout: 5000,
@@ -637,5 +701,26 @@ describe("sync command", () => {
       { encoding: "utf8" }
     );
     assert.ok(output.includes("template profile: copilot"));
+  });
+
+  it("sync dry-run refreshes skills via --source-skills", () => {
+    const output = execSync(
+      `node "${cliPath}" sync --template-profile copilot --dry-run --source-prompts "${path.join(templatesDir, "copilot", "prompts")}" --source-agents "${path.join(templatesDir, "copilot", "agents")}" --source-skills "${path.join(templatesDir, "content", "skills")}"`,
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
+    );
+    assert.ok(output.includes("skills"));
+  });
+
+  it("sync rejects unknown template profiles", () => {
+    try {
+      execSync(
+        `node "${cliPath}" sync --template-profile core --dry-run`,
+        { encoding: "utf8", stdio: "pipe", timeout: 5000 }
+      );
+      assert.fail("should have thrown");
+    } catch (err) {
+      const output = (err.stderr || "") + (err.stdout || "") + (err.message || "");
+      assert.ok(output.includes("Unknown template profile"), `expected profile error, got: ${output.slice(0, 300)}`);
+    }
   });
 });

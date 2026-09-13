@@ -1,11 +1,11 @@
 ---
-name: es-change-init
-description: 'es-change-init command'
+name: es-init
+description: es-init command
 ---
 
 Initialize or update `docs/config.yaml` by scanning the project structure and asking targeted questions.
 
-**Input**: No arguments needed. Run as `/es-change-init`.
+**Input**: No arguments needed. Run as `/es-init`.
 
 ---
 
@@ -134,9 +134,9 @@ Create or overwrite `docs/config.yaml` with the confirmed values:
 
 ```yaml
 # Change Lifecycle Configuration
-# Provides project-specific context for the /es-change-* workflow tools.
+# Provides project-specific context for the /es-* workflow tools.
 # All agents read this file first before starting any task.
-# Run /es-change-init to update this file when the project evolves.
+# Run /es-init to update this file when the project evolves.
 
 project:
   name: <confirmed name>
@@ -176,7 +176,7 @@ If any field could not be detected or confirmed, leave it as a descriptive place
 
 ## Step 5: Verify Accuracy (for existing configs)
 
-When re-running `/es-change-init` on an already-populated config, perform these checks:
+When re-running `/es-init` on an already-populated config, perform these checks:
 
 ### Source path verification
 For each path in `source.*`:
@@ -224,11 +224,11 @@ Announce:
 
 docs/config.yaml is ready.
 
-All /es-change-* tools will now read this file for project context.
-Run /es-change-init again anytime the project structure changes.
+All /es-* tools will now read this file for project context.
+Run /es-init again anytime the project structure changes.
 
 Next steps:
-- Run /es-change-propose to start a new change
+- Run /es-propose to start a new change
 - Run /es-master-review to audit existing master docs
 ```
 

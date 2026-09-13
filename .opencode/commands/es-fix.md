@@ -1,11 +1,11 @@
 ---
-name: es-change-fix
-description: es-change-fix command
+name: es-fix
+description: 'es-fix command'
 ---
 
 Fix an issue in an existing change through a systematic test-driven approach with full documentation updates.
 
-**Input**: Optionally specify a change name and issue description (e.g., `/es-change-fix add-dark-mode "navbar toggle doesn't save preference"`). If omitted, the command will ask.
+**Input**: Optionally specify a change name and issue description (e.g., `/es-fix add-dark-mode "navbar toggle doesn't save preference"`). If omitted, the command will ask.
 
 ---
 
@@ -169,7 +169,7 @@ This document tracks all bug fixes and issues resolved for this change.
 
 ## Step 6: Reproduce the Issue (Delegate to Tester)
 
-Load `.github/skills/es-change-lifecycle/SKILL.md` for context.
+Load the es-lifecycle skill for context.
 
 Delegate to **es-tester agent**:
 > "A bug has been reported in change `<name>`. Fix ID: `FIX-<timestamp>`.
@@ -391,7 +391,7 @@ Full details recorded in: `docs/changes/<name>/fix-log.md#fix-<timestamp-yyyymmd
 ---
 
 **Next Steps:**
-- Run `/es-change-update-master` if this change is ready to merge to master docs
+- Run `/es-update-master` if this change is ready to merge to master docs
 - Continue development or run `/change-fix` again for additional issues
 ```
 

@@ -163,5 +163,5 @@ If tests fail after 2 iterations, escalate to the user.
 - **Reproduction test is encouraged but optional** — some issues (visual, flaky) may not be practical to automate
 - **Maximum 2 fix-test iterations** — escalate to user if not resolved
 - **Triage before delegating** — send investigation to the right agent to avoid wasted effort
-- **Do NOT create change docs** — this is for quick fixes only. If the issue requires a full change, recommend the user run `/es-change-init` and `/es-change-propose` instead.
+- **Do NOT create change docs** — this is for quick fixes only. If the issue requires a full change, recommend the user run `/es-init` and `/es-propose` instead.
 - **If the issue scope is too large** (3+ files across layers, requires architecture changes), recommend using the full change lifecycle

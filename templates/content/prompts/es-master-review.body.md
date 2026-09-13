@@ -11,7 +11,7 @@ Review master product docs under `docs/` for quality, accuracy, and freshness, a
 
 ## Step 1: Load Review Skill and Project Config
 
-Read `.github/skills/es-change-lifecycle/SKILL.md` for master doc structure conventions.
+Load the es-lifecycle skill for master doc structure conventions.
 
 Read `docs/config.yaml` for project source paths (needed to verify code references and test file paths).
 
@@ -85,7 +85,7 @@ For every Code Reference Map table in `docs/master/technology/`:
 Reverse check: Scan source directories (from `docs/config.yaml` `source.frontend` and `source.backend`) for key function/component patterns and verify they appear in the Code Reference Map.
 
 ### 4c. Structure Compliance
-For each folder, check required sections as defined in the es-change-lifecycle skill:
+For each folder, check required sections as defined in the es-lifecycle skill:
 - Product docs: Epic Overview, Business Goals, User Stories, Acceptance Criteria, Out of Scope
 - Architecture docs: Mermaid diagrams with ≤15 nodes
 - Database docs: Mermaid erDiagram, no SQL, database-objects.md currency
@@ -197,7 +197,7 @@ If the user chooses auto-fix:
 ---
 
 ## Guardrails
-- Always load es-change-lifecycle skill before running checks
+- Always load es-lifecycle skill before running checks
 - Run the full test suite in Step 4 — never skip it or assume a clean status
 - A clean test status is required before declaring the review complete
 - During doc review, only docs are changed; test fixes may require source changes — confirm with the user and delegate to es-tester / es-developer

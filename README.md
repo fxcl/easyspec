@@ -45,7 +45,7 @@ easyspec init
 
 Run interactively, the CLI asks two questions:
 
-1. **Harness(es)** — which coding agent(s) to install for (multi-select: Copilot, OpenCode, Claude Code).
+1. **Harness(es)** — which coding agent(s) to install for (multi-select: Copilot, OpenCode, Claude Code, ZCode, Qoder, Kilo Code).
 2. **Scope** — install into the current project, or globally into your user profile.
 
 You can skip the prompts with flags:
@@ -61,7 +61,21 @@ You can skip the prompts with flags:
 | `--non-tech-model` | `<name>` | `auto` | Model for non-technical agents |
 | `--model-preset` | `balanced`, `speed`, `quality` | — | Apply a preset model pair |
 
-Models default to **`auto`** — no need to pick one.
+Models default to **`auto`** — no need to pick one. Model options only affect **Copilot** agent files; agent definitions for the other harnesses carry no `model` field.
+
+### Inspect or remove
+
+```bash
+# Show which easyspec files are installed per harness
+easyspec list --agent qoder --scope project
+easyspec list --scope project          # all harnesses
+
+# Remove every es-* file easyspec installed (preview first with --dry-run)
+easyspec uninstall --agent copilot --scope project --dry-run
+easyspec uninstall --agent copilot --scope project
+```
+
+`uninstall` only touches `es-`-prefixed files and skill folders, so user-created content stays untouched.
 
 ### Destination mapping
 
@@ -69,23 +83,23 @@ Models default to **`auto`** — no need to pick one.
 
 | Agent | Commands/Prompts | Agents | Skills |
 |-------|------------------|--------|--------|
-| `copilot` | `<ws>/.github/prompts/*.prompt.md` | `<ws>/.github/agents/*.md` | `<ws>/.github/skills/<name>/SKILL.md` |
-| `opencode` | `<ws>/.opencode/commands/*.md` | `<ws>/.opencode/agents/*.md` | `<ws>/.opencode/skills/<name>/SKILL.md` |
-| `claude-code` | `<ws>/.claude/commands/*.md` | `<ws>/.claude/agents/*.md` | `<ws>/.claude/skills/<name>/SKILL.md` |
-| `zcode` | `<ws>/.zcode/commands/*.md` | `<ws>/.zcode/agents/*.md` | `<ws>/.zcode/skills/<name>/SKILL.md` |
-| `qoder` | `<ws>/.qoder/commands/*.md` | — (no custom agent files) | `<ws>/.qoder/skills/<name>/SKILL.md` |
-| `kilocode` | `<ws>/.kilo/commands/*.md` | `<ws>/.kilo/agents/*.md` | `<ws>/.kilo/skills/<name>/SKILL.md` |
+| `copilot` | `<ws>/.github/prompts/*.prompt.md` | `<ws>/.github/agents/*.agent.md` | `<ws>/.github/skills/<name>/SKILL.md` |
+| `opencode` | `<ws>/.opencode/commands/*.md` | `<ws>/.opencode/agents/*.md` | `<ws>/.opencode/skills/<name>/SKILL.md` + rule `rules/es-conventions.md` |
+| `claude-code` | `<ws>/.claude/commands/*.md` | `<ws>/.claude/agents/*.md` | `<ws>/.claude/skills/<name>/SKILL.md` + rule `rules/es-conventions.md` |
+| `zcode` | `<ws>/.zcode/commands/*.md` | `<ws>/.zcode/agents/*.md` | `<ws>/.zcode/skills/<name>/SKILL.md` + rule `rules/es-conventions.md` |
+| `qoder` | `<ws>/.qoder/commands/*.md` | `<ws>/.qoder/agents/*.md` | `<ws>/.qoder/skills/<name>/SKILL.md` + rule `rules/es-conventions.md` |
+| `kilocode` | `<ws>/.kilo/commands/*.md` | `<ws>/.kilo/agents/*.md` | `<ws>/.kilo/skills/<name>/SKILL.md` + rule `rules/es-conventions.md` |
 
 **Global scope** (`--scope global`): installed under your user profile instead of `<ws>/`.
 
 | Agent | Commands/Prompts | Agents | Skills |
 |-------|------------------|--------|--------|
 | `copilot` | `~/Library/Application Support/Code/User/prompts/` (macOS) or `%APPDATA%\Code\User\prompts\` (Windows) | `~/.copilot/agents/` | `~/.copilot/skills/` |
-| `opencode` | `~/.config/opencode/commands/` | `~/.config/opencode/agents/` | `~/.config/opencode/skills/` |
-| `claude-code` | `~/.claude/commands/` | `~/.claude/agents/` | `~/.claude/skills/` |
-| `zcode` | `~/.zcode/commands/` | `~/.zcode/agents/` | `~/.zcode/skills/` |
-| `qoder` | `~/.qoder/commands/` | — (no custom agent files) | `~/.qoder/skills/` |
-| `kilocode` | `~/.config/kilo/commands/` | `~/.config/kilo/agents/` | `~/.kilo/skills/` |
+| `opencode` | `~/.config/opencode/commands/` | `~/.config/opencode/agents/` | `~/.config/opencode/skills/` + rule `~/.config/opencode/rules/` |
+| `claude-code` | `~/.claude/commands/` | `~/.claude/agents/` | `~/.claude/skills/` + rule `~/.claude/rules/` |
+| `zcode` | `~/.zcode/commands/` | `~/.zcode/agents/` | `~/.zcode/skills/` + rule `~/.zcode/rules/` |
+| `qoder` | `~/.qoder/commands/` | `~/.qoder/agents/` | `~/.qoder/skills/` + rule `~/.qoder/rules/` |
+| `kilocode` | `~/.config/kilo/commands/` | `~/.config/kilo/agents/` | `~/.kilo/skills/` + rule `~/.config/kilo/rules/` |
 
 ### Examples
 
@@ -111,19 +125,19 @@ easyspec init --agent zcode,qoder --scope project
 # Kilo Code globally (skills go to ~/.kilo/skills)
 easyspec init --agent kilocode --scope global
 
-# Preview without writing
+# Preview without writing (lists every file)
 easyspec init --agent opencode --dry-run
 ```
 
 ### What is installed
 
-**Commands:** `es-change-init`, `es-change-propose`, `es-change-apply`, `es-change-refinement`, `es-change-fix`, `es-master-review`, `es-change-update-master`, `es-quick-fix`
+**Commands:** `es-init`, `es-propose`, `es-implement`, `es-refinement`, `es-fix`, `es-master-review`, `es-update-master`, `es-quick-fix`, `es-archive`
 
 **Agents:** `es-product-owner`, `es-ux-specialist`, `es-architect`, `es-database-designer`, `es-developer`, `es-tester`, `es-document-reviewer`
 
-**Skill:** `es-change-lifecycle`
+**Skill:** `es-lifecycle`
 
-> Qoder has no user-defined agent mechanism (its official extension points are rules, commands, MCP, and skills), so for Qoder only the commands and the skill are installed.
+> Every harness except Copilot also installs a conventions rule (`rules/es-conventions.md`). Claude Code and Qoder load rules natively; for OpenCode, ZCode, and Kilo Code the rule is installed for forward-compatibility.
 
 ## Acknowledgements
 

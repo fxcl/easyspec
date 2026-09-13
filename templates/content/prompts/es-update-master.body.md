@@ -1,11 +1,11 @@
 ---
-name: es-change-update-master
-description: 'es-change-update-master command'
+name: es-update-master
+description: es-update-master command
 ---
 
 Update master product docs by applying a completed change's documentation to the canonical `docs/` folder.
 
-**Input**: Optionally specify a change name (e.g., `/es-change-update-master add-dark-mode`). If omitted, list available changes and ask the user to select.
+**Input**: Optionally specify a change name (e.g., `/es-update-master add-dark-mode`). If omitted, list available changes and ask the user to select.
 
 ---
 
@@ -34,7 +34,7 @@ Read all files in `docs/changes/<name>/`:
 10. `operations.md` — (if exists) Operations changes
 
 Also read:
-- `.github/skills/es-change-lifecycle/SKILL.md` for master doc structure conventions
+- Load the es-lifecycle skill for master doc structure conventions
 - `docs/config.yaml` for project source paths and conventions
 
 ---
@@ -61,7 +61,7 @@ Delegate to **es-product-owner agent**:
 > 1. If this is a new feature: create `docs/master/product/features/<feature-name>.md` following the PRD format
 > 2. If this modifies an existing feature: update the relevant `docs/master/product/features/<name>.md`
 > 3. If this changes strategic direction: update `docs/master/product/product-vision.md`
-> 4. Apply the 'Spec Update Instructions' from `spec-change.md` to relevant `openspec/specs/` files
+> 4. Apply the 'Spec Update Instructions' from `spec-change.md` to relevant `docs/master/product/` feature spec files
 >
 > Docs must be code-free, business language, no implementation details."
 
@@ -148,7 +148,7 @@ Delegate to **es-developer agent**:
 > 5. Update `docs/master/technology/README.md` index if new modules were added
 >
 > The Code Reference Map is the developer's primary code navigation tool — accuracy is critical.
-> Load `.github/skills/es-change-lifecycle/SKILL.md` for format requirements."
+> Load the es-lifecycle skill for format requirements."
 
 ---
 
@@ -182,7 +182,7 @@ Delegate to **es-tester agent**:
 > # Master Demo Cases
 > <!-- Whole-product curated demo — one representative scenario per feature -->
 > <!-- Use with: /demo-app --cases docs/master/qa/demo-cases.md -->
-> <!-- Updated automatically by /es-change-update-master -->
+> <!-- Updated automatically by /es-update-master -->
 >
 > ## Grep Patterns
 > <!-- Playwright --grep filter: one pattern per line, joined with | -->
@@ -295,15 +295,15 @@ If yes, perform a **move** (copy then delete original) using these explicit step
 
 ### Next Steps
 - Run `/es-master-review` to verify master docs are accurate and well-structured
-- Or archive the change if not done: move to openspec/changes/archive/
+- Or archive the change if not done: run `/es-archive` (moves it to `docs/changes/archive/`)
 ```
 
 ---
 
 ## Guardrails
-- Always Load the es-change-lifecycle skill before delegating to agents
+- Always Load the es-lifecycle skill before delegating to agents
 - Always verify implementation is complete before updating master docs
 - Each agent updates only their domain — don't cross-delegate
 - Never add code snippets to master docs — send back for revision if found
 - The Code Reference Map in tech specs must be verified against actual source files
-- If a master doc area doesn't exist yet, create it following the es-change-lifecycle skill conventions
+- If a master doc area doesn't exist yet, create it following the es-lifecycle skill conventions

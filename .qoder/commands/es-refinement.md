@@ -1,11 +1,11 @@
 ---
-name: es-change-refinement
-description: 'es-change-refinement command'
+name: es-refinement
+description: 'es-refinement command'
 ---
 
 Incorporate an adjustment into an existing change by cascading it through all completed work — documentation, implementation, and tests.
 
-**Input**: Optionally specify a change name and adjustment (e.g., `/es-change-refinement add-dark-mode "add a light/dark toggle to the navbar"`). If omitted, the command will ask.
+**Input**: Optionally specify a change name and adjustment (e.g., `/es-refinement add-dark-mode "add a light/dark toggle to the navbar"`). If omitted, the command will ask.
 
 ---
 
@@ -98,7 +98,7 @@ If the user selects **Proceed**, continue to Step 5. If **Cancel**, stop and not
 
 ## Step 5: Update Change Documentation
 
-Load `.github/skills/es-change-lifecycle/SKILL.md` for document format requirements.
+Load the es-lifecycle skill for document format requirements.
 
 Update each affected document by re-running the relevant agent, passing both the **original change context** and the **adjustment statement**. Agents must treat the adjustment as a first-class requirement — not an afterthought — and revise their output accordingly.
 
@@ -109,7 +109,7 @@ Delegate to **es-product-owner agent**:
 >
 > Read the current `docs/changes/<name>/prd.md` and `docs/changes/<name>/spec-change.md`. Update both to incorporate the adjustment as if it were part of the original requirements. Add, modify, or remove user stories and acceptance criteria as needed. Do not add a 'Refinement' section — integrate the changes naturally.
 >
-> Read `docs/config.yaml` for project context. Load `.github/skills/es-change-lifecycle/SKILL.md` for format requirements."
+> Read `docs/config.yaml` for project context. Load the es-lifecycle skill for format requirements."
 
 After update, delegate to **es-document-reviewer agent** to review both files.
 
@@ -156,7 +156,7 @@ Delegate to **es-developer agent**:
 > - Renumber tasks sequentially within each phase after any insertions/removals
 > - If new tasks require rework of already-completed tasks, mark those `- [x]` items with a `⚠️ NEEDS REWORK` annotation and add corresponding new `- [ ]` rework tasks
 >
-> Load `.github/skills/es-change-lifecycle/SKILL.md` for format requirements."
+> Load the es-lifecycle skill for format requirements."
 
 ### 5f. Update `test-plan.md` (always affected)
 
@@ -334,18 +334,18 @@ Based on the user's selection:
 - **"Full demo (normal speed)"** → invoke `/demo-app --cases docs/changes/<name>/demo-cases.md --speed normal`
 - **"Fast review"** → invoke `/demo-app --cases docs/changes/<name>/demo-cases.md --speed fast`
 - **"Manual control"** → invoke `/demo-app --cases docs/changes/<name>/demo-cases.md --pause`
-- **"Skip for now"** → announce: "Run `/es-change-update-master` when ready to update master product docs."
+- **"Skip for now"** → announce: "Run `/es-update-master` when ready to update master product docs."
 
 If the user provides a specific scenario name as freeform input, invoke `/demo-app --cases docs/changes/<name>/demo-cases.md --filter <scenario> --speed normal`
 
 After any demo completes, remind the user:
-> "Run `/es-change-update-master` to apply changes to master product docs."
+> "Run `/es-update-master` to apply changes to master product docs."
 
 **If the change is NOT Phase D**, show next steps instead:
 
 ```
 ### Next Steps
-- Run `/es-change-apply <name>` to implement the change
+- Run `/es-implement <name>` to implement the change
 ```
 
 ---
@@ -354,7 +354,7 @@ After any demo completes, remind the user:
 
 - Never uncheck `- [x]` completed tasks unless they are explicitly marked `⚠️ NEEDS REWORK`
 - Always confirm the Impact Summary with the user before making any changes
-- Always Load the es-change-lifecycle skill before delegating to agents
+- Always Load the es-lifecycle skill before delegating to agents
 - Always run document-reviewer on updated prd.md, spec-change.md, architecture.md, data-model.md, and prototype
 - If an agent produces content with code snippets in docs, send back for revision
 - The adjustment must be integrated naturally — do NOT add a "Refinement history" or "Change log" section to any document

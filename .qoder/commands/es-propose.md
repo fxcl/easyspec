@@ -1,11 +1,11 @@
 ---
-name: es-change-propose
-description: 'es-change-propose command'
+name: es-propose
+description: 'es-propose command'
 ---
 
 Create a new change with a complete documentation set by orchestrating the agent team.
 
-**Input**: Optionally specify a change name (e.g., `/es-change-propose add-dark-mode`). If omitted, ask what the user wants to build.
+**Input**: Optionally specify a change name (e.g., `/es-propose add-dark-mode`). If omitted, ask what the user wants to build.
 
 ---
 
@@ -14,12 +14,12 @@ Create a new change with a complete documentation set by orchestrating the agent
 Check if `docs/config.yaml` exists and is populated (no fields containing `<` and `>` or `TODO:`).
 
 **If `docs/config.yaml` does not exist**:
-> "docs/config.yaml is missing. Running `/es-change-init` first to set up project configuration..."
-> Execute the `/es-change-init` workflow fully before continuing.
+> "docs/config.yaml is missing. Running `/es-init` first to set up project configuration..."
+> Execute the `/es-init` workflow fully before continuing.
 
 **If `docs/config.yaml` exists but has uninitialized placeholders** (`<` or `>` in any value, or fields starting with `TODO:`):
-> "docs/config.yaml has uninitialized fields. Please run `/es-change-init` to complete setup before proposing a change."
-> Stop and wait for the user to run `/es-change-init`.
+> "docs/config.yaml has uninitialized fields. Please run `/es-init` to complete setup before proposing a change."
+> Stop and wait for the user to run `/es-init`.
 
 **If `docs/config.yaml` is properly initialized**: Read it and proceed.
 
@@ -87,7 +87,7 @@ agents_complete:
 
 ## Step 4: Load Lifecycle Skill and Project Config
 
-Read `.github/skills/es-change-lifecycle/SKILL.md` for full document format requirements.
+Load the es-lifecycle skill for full document format requirements.
 
 Read `docs/config.yaml` for project-specific context (source paths, tech stack, conventions) to pass to agents.
 
@@ -98,7 +98,7 @@ Read `docs/config.yaml` for project-specific context (source paths, tech stack, 
 ### 5a. es-Product Owner Agent → `prd.md` + `spec-change.md`
 
 Delegate to **es-product-owner agent**:
-> "Create `docs/changes/<name>/prd.md` following the PRD format in the es-change-lifecycle skill. Then create `docs/changes/<name>/spec-change.md` documenting the delta to the product specification. Context: [summary of the change from user input]. Read `docs/config.yaml` for project context."
+> "Create `docs/changes/<name>/prd.md` following the PRD format in the es-lifecycle skill. Then create `docs/changes/<name>/spec-change.md` documenting the delta to the product specification. Context: [summary of the change from user input]. Read `docs/config.yaml` for project context."
 
 After creation, delegate to **es-document-reviewer agent** to review both files.
 
@@ -144,7 +144,7 @@ Delegate to **es-developer agent**:
 >    - Task numbers must be sequential within each phase with no gaps (1.1, 1.2, 1.3 — not 1.1, 1.3).
 > 2. `docs/changes/<name>/tech-spec.md` — technical specification with Component Breakdown, API Changes, Data Access Patterns, and a complete Code Reference Map table.
 >
-> Load `.github/skills/es-change-lifecycle/SKILL.md` for format requirements."
+> Load the es-lifecycle skill for format requirements."
 
 Update `.change.yaml`: `agents_complete.developer: true`
 
@@ -188,14 +188,14 @@ If `has_operations_changes` is true, delegate to **es-developer agent**:
 - [x/skipped] operations.md — Operations notes
 
 ### Next Steps
-- Review the change docs in openspec/changes/<name>/
-- Run `/es-change-apply` to implement the change
+- Review the change docs in docs/changes/<name>/
+- Run `/es-implement` to implement the change
 ```
 
 ---
 
 ## Guardrails
-- Always Load the es-change-lifecycle skill before delegating to agents
+- Always Load the es-lifecycle skill before delegating to agents
 - Always run document-reviewer on prd.md, spec-change.md, architecture.md, data-model.md, and prototype
 - If an agent produces content with code snippets, send back for revision
 - Only ask clarifying questions when requirements are genuinely ambiguous — analyze scope from requirements autonomously

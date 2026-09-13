@@ -1,6 +1,6 @@
 {
   "name": "@myaider/easyspec",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Shareable easyspec prompts, custom agent definitions, and skills with an init CLI for copilot, opencode, claude-code, and other agentic coding tools.",
   "type": "module",
   "bin": {
@@ -19,7 +19,7 @@
     "init:project": "node bin/easyspec-init.js init --scope project --agent copilot",
     "init:global": "node bin/easyspec-init.js init --scope global --agent copilot",
     "init:opencode": "node bin/easyspec-init.js init --scope project --agent opencode",
-    "sync": "node bin/easyspec-init.js sync --template-profile core",
+    "sync": "node bin/easyspec-init.js sync --template-profile copilot",
     "check": "node bin/easyspec-init.js --help"
   },
   "keywords": [
@@ -35,6 +35,9 @@
     "openspec"
   ],
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hurungang/easyspec.git"

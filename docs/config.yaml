@@ -1,7 +1,7 @@
 # Change Lifecycle Configuration
-# Provides project-specific context for the /es-change-* workflow tools.
+# Provides project-specific context for the /es-* workflow tools.
 # All agents read this file first before starting any task.
-# Run /es-change-init to update this file when the project evolves.
+# Run /es-init to update this file when the project evolves.
 
 project:
   name: "@myaider/easyspec"

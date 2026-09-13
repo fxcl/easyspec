@@ -1,5 +1,5 @@
 ---
-name: es-change-lifecycle
+name: es-lifecycle
 description: Core knowledge for managing the full development lifecycle: creating change doc sets, implementing changes with the agent team, and updating master product docs. Load this when working on any change management, proposal, apply, or master-update task.
 license: MIT
 metadata:
@@ -123,7 +123,7 @@ Master docs live in `docs/master/` with the following structure:
 **Purpose**: Documents what changes in the product specification as a delta from current state.
 
 **Required sections**:
-1. **Affected Spec Areas** — Which master spec areas this change touches (with links to `openspec/specs/`)
+1. **Affected Spec Areas** — Which master spec areas this change touches (with links to `docs/master/product/` feature specs)
 2. **New Capabilities** — New user-facing capabilities being added
 3. **Modified Capabilities** — Existing capabilities being changed, with before/after description
 4. **Removed Capabilities** — Capabilities being removed (if any)
@@ -300,7 +300,7 @@ When creating test plans for changes that modify database schema:
 1. **Monitoring** — New metrics, alerts, dashboards needed
 2. **Logging** — What is logged and where to find it
 3. **Common Issues** — Known failure modes and how to resolve
-3. **Master Operations Update Instructions** — What to update in `docs/master/operations/`
+4. **Master Operations Update Instructions** — What to update in `docs/master/operations/`
 
 ---
 
@@ -385,5 +385,5 @@ update-master → master-updated
   (all master docs updated from change docs)
 
 archive → archived
-  (change moved to openspec/changes/archive/)
+  (change moved to docs/changes/archive/ via /es-archive)
 ```

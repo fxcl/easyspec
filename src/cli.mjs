@@ -14,7 +14,7 @@ const TOOL_PROFILES = {
     agentDir: "agents",
     promptDir: "prompts",
     skillDir: "skills",
-    agentExt: ".md",
+    agentExt: ".agent.md",
     promptExt: ".prompt.md",
     templateProfile: "copilot",
   },
@@ -28,6 +28,10 @@ const TOOL_PROFILES = {
     agentExt: ".md",
     promptExt: ".md",
     templateProfile: "opencode",
+    // OpenCode has no official rules directory convention yet (AGENTS.md +
+    // opencode.json instructions is the official path). The rule is installed
+    // for structural uniformity and forward-compatibility.
+    ruleDir: "rules",
   },
   "claude-code": {
     label: "Claude Code",
@@ -39,6 +43,9 @@ const TOOL_PROFILES = {
     agentExt: ".md",
     promptExt: ".md",
     templateProfile: "opencode",
+    // Claude Code supports modular project rules in .claude/rules/*.md
+    // (official memory docs) — same conventions rule as Qoder.
+    ruleDir: "rules",
   },
   zcode: {
     label: "ZCode (Z.ai)",
@@ -50,6 +57,9 @@ const TOOL_PROFILES = {
     agentExt: ".md",
     promptExt: ".md",
     templateProfile: "opencode",
+    // Rules directory support is unverified for ZCode; the rule is installed
+    // for structural uniformity and forward-compatibility.
+    ruleDir: "rules",
   },
   qoder: {
     label: "Qoder",
@@ -61,9 +71,11 @@ const TOOL_PROFILES = {
     agentExt: ".md",
     promptExt: ".md",
     templateProfile: "opencode",
-    // Qoder has no user-defined agent mechanism (official extension points are
-    // rules, commands, MCP, and skills) — install commands + skills only.
-    skipAgents: true,
+    // Qoder custom agents use the same shape as OpenCode (frontmatter with
+    // name/description/tools + markdown body) in agents/, so the opencode
+    // shell templates work as-is. Qoder additionally supports project rules,
+    // which carry the lifecycle conventions.
+    ruleDir: "rules",
   },
   kilocode: {
     label: "Kilo Code",
@@ -79,6 +91,8 @@ const TOOL_PROFILES = {
     // (KilocodePaths.skillDirectories) while global commands/agents live in
     // the XDG config dir ~/.config/kilo — hence the separate skill home.
     globalSkillHome: ".kilo",
+    // Kilo has a custom rules concept; the rule is installed for uniformity.
+    ruleDir: "rules",
   },
 };
 
@@ -98,7 +112,7 @@ const MODEL_PRESETS = {
   },
 };
 
-function copilotUserPromptDir() {
+export function copilotUserPromptDir(homeDir = os.homedir()) {
   if (process.platform === "win32") {
     const appData = process.env.APPDATA;
     if (!appData) {
@@ -108,10 +122,10 @@ function copilotUserPromptDir() {
   }
 
   if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "Code", "User", "prompts");
+    return path.join(homeDir, "Library", "Application Support", "Code", "User", "prompts");
   }
 
-  return path.join(os.homedir(), ".config", "Code", "User", "prompts");
+  return path.join(homeDir, ".config", "Code", "User", "prompts");
 }
 
 function defaultPromptSourcePath() {
@@ -122,30 +136,39 @@ function defaultAgentSourcePath() {
   return path.join(os.homedir(), ".copilot", "agents");
 }
 
+function defaultSkillSourcePath() {
+  return path.join(os.homedir(), ".copilot", "skills");
+}
+
 function printHelp() {
   console.log(`easyspec-init
 
 Usage:
-  easyspec init [options]
-  easyspec sync [options]
-  easyspec-init init [options]
-  easyspec-init sync [options]
-  easyspec-init --help
+  easyspec <command> [options]
+
+Commands:
+  init        Install commands, agents, rules, and skills for target harness(es)
+  list        Show which easyspec entities are installed per harness
+  uninstall   Remove the es-* files easyspec installed
+  sync        Refresh template profiles from installed sources (maintainers)
 
 Options:
   --agent <copilot,opencode,claude-code,zcode,qoder,kilocode>
-                                  Coding agent(s) to install (comma-separated;
-                                  prompts interactively if omitted)
+                                  Coding agent(s) (comma-separated; prompts
+                                  interactively if omitted)
   --scope <project|global>        Install scope (prompts interactively if omitted)
   --workspace <path>              Project folder for --scope project (default: cwd)
   --force                         Overwrite existing files
-  --dry-run                       Show what would be copied
+  --dry-run                       Preview without writing (lists every file)
   --source-prompts <path>         Source prompt directory for sync command
   --source-agents <path>          Source agent directory for sync command
+  --source-skills <path>          Source skills directory for sync command
   --template-profile <name>       Template profile to refresh (default: copilot)
   --include-agents <a,b,c>        Optional explicit agent list for sync
-  --tech-model <name>             Model for technical agents (default: auto)
-  --non-tech-model <name>         Model for non-technical agents (default: auto)
+  --tech-model <name>             Model for technical agents (default: auto;
+                                  only applies to Copilot agent files)
+  --non-tech-model <name>         Model for non-technical agents (default: auto;
+                                  only applies to Copilot agent files)
   --model-preset <balanced|speed|quality>
                                   Apply preset model pair before explicit overrides
   --help                          Show this help
@@ -158,8 +181,18 @@ Examples:
   easyspec init --agent zcode,qoder --scope project
   easyspec init --agent kilocode --scope global
   easyspec init --scope project --model-preset balanced
-  easyspec sync --template-profile core
+  easyspec list --agent qoder --scope project
+  easyspec uninstall --agent copilot --scope project --dry-run
+  easyspec sync --template-profile copilot
 `);
+}
+
+function readOptionValue(argv, index, flag) {
+  const value = argv[index + 1];
+  if (value === undefined || value.startsWith("-")) {
+    throw new Error(`Missing value for ${flag}. Usage: easyspec ${flag} <value>`);
+  }
+  return value;
 }
 
 function parseArgs(argv) {
@@ -172,12 +205,12 @@ function parseArgs(argv) {
     dryRun: false,
     sourcePrompts: defaultPromptSourcePath(),
     sourceAgents: defaultAgentSourcePath(),
-    templateProfile: "core",
+    sourceSkills: defaultSkillSourcePath(),
+    templateProfile: "copilot",
     includeAgents: null,
     techModel: null,
     nonTechModel: null,
     modelPreset: null,
-    modelPrompt: true,
     agentsExplicit: false,
     scopeExplicit: false,
     help: false,
@@ -204,11 +237,11 @@ function parseArgs(argv) {
     } else if (token === "--dry-run") {
       args.dryRun = true;
     } else if (token === "--scope") {
-      args.scope = argv[i + 1];
+      args.scope = readOptionValue(argv, i, "--scope");
       args.scopeExplicit = true;
       i += 1;
     } else if (token === "--agent") {
-      const values = argv[i + 1]
+      const values = readOptionValue(argv, i, "--agent")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean);
@@ -216,34 +249,35 @@ function parseArgs(argv) {
       args.agentsExplicit = true;
       i += 1;
     } else if (token === "--workspace") {
-      args.workspace = path.resolve(argv[i + 1]);
+      args.workspace = path.resolve(readOptionValue(argv, i, "--workspace"));
       i += 1;
     } else if (token === "--source-prompts") {
-      args.sourcePrompts = path.resolve(argv[i + 1]);
+      args.sourcePrompts = path.resolve(readOptionValue(argv, i, "--source-prompts"));
       i += 1;
     } else if (token === "--source-agents") {
-      args.sourceAgents = path.resolve(argv[i + 1]);
+      args.sourceAgents = path.resolve(readOptionValue(argv, i, "--source-agents"));
+      i += 1;
+    } else if (token === "--source-skills") {
+      args.sourceSkills = path.resolve(readOptionValue(argv, i, "--source-skills"));
       i += 1;
     } else if (token === "--template-profile") {
-      args.templateProfile = argv[i + 1];
+      args.templateProfile = readOptionValue(argv, i, "--template-profile");
       i += 1;
     } else if (token === "--include-agents") {
-      args.includeAgents = argv[i + 1]
+      args.includeAgents = readOptionValue(argv, i, "--include-agents")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean);
       i += 1;
     } else if (token === "--tech-model") {
-      args.techModel = argv[i + 1];
+      args.techModel = readOptionValue(argv, i, "--tech-model");
       i += 1;
     } else if (token === "--non-tech-model") {
-      args.nonTechModel = argv[i + 1];
+      args.nonTechModel = readOptionValue(argv, i, "--non-tech-model");
       i += 1;
     } else if (token === "--model-preset") {
-      args.modelPreset = argv[i + 1];
+      args.modelPreset = readOptionValue(argv, i, "--model-preset");
       i += 1;
-    } else if (token === "--no-model-prompt") {
-      args.modelPrompt = false;
     } else {
       throw new Error(`Unknown argument: ${token}`);
     }
@@ -295,35 +329,16 @@ function copyFileWithPolicy(src, dest, options) {
   return exists ? "overwritten" : "copied";
 }
 
-function copyDirectoryContents(srcDir, destDir, options) {
-  const summary = {
-    copied: 0,
-    overwritten: 0,
-    skipped: 0,
-  };
-  ensureDir(destDir, options.dryRun);
-
-  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile()) {
-      continue;
-    }
-    const src = path.join(srcDir, entry.name);
-    const dest = path.join(destDir, entry.name);
-    const result = copyFileWithPolicy(src, dest, options);
-    summary[result] += 1;
-  }
-
-  return summary;
-}
-
 function mergeSummary(target, partial) {
   target.copied += partial.copied;
   target.overwritten += partial.overwritten;
   target.skipped += partial.skipped;
+  if (partial.files) {
+    target.files.push(...partial.files);
+  }
 }
 
-function parseFrontmatter(content) {
+export function parseFrontmatter(content) {
   if (!content.startsWith("---\n")) {
     return { frontmatter: {}, body: content };
   }
@@ -363,7 +378,7 @@ function findGenericTemplate(templateDir) {
 }
 
 function renderEntitiesFromContent(templateDir, destDir, contentDir, entityType, entityExt, options) {
-  const summary = { copied: 0, overwritten: 0, skipped: 0 };
+  const summary = { copied: 0, overwritten: 0, skipped: 0, files: [] };
 
   const genericTemplatePath = findGenericTemplate(templateDir);
   if (!genericTemplatePath) {
@@ -405,6 +420,7 @@ function renderEntitiesFromContent(templateDir, destDir, contentDir, entityType,
       ensureDir(destDir, false);
       fs.writeFileSync(destPath, rendered, "utf8");
     }
+    summary.files.push({ action: exists ? "overwrite" : "create", path: destPath });
     summary[exists ? "overwritten" : "copied"] += 1;
   }
 
@@ -412,7 +428,7 @@ function renderEntitiesFromContent(templateDir, destDir, contentDir, entityType,
 }
 
 function copySkillDirectory(srcSkillDir, destSkillDir, contentDir, options) {
-  const summary = { copied: 0, overwritten: 0, skipped: 0 };
+  const summary = { copied: 0, overwritten: 0, skipped: 0, files: [] };
   if (!fs.existsSync(srcSkillDir)) {
     return summary;
   }
@@ -450,6 +466,7 @@ function copySkillDirectory(srcSkillDir, destSkillDir, contentDir, options) {
       if (!options.dryRun) {
         fs.writeFileSync(sfDest, rendered, "utf8");
       }
+      summary.files.push({ action: exists ? "overwrite" : "create", path: sfDest });
       summary[exists ? "overwritten" : "copied"] += 1;
     }
   }
@@ -480,44 +497,6 @@ function renderTemplate(templatePath, contentDir, options, bodySubPath) {
   return template.replace("{{body}}", body);
 }
 
-function renderDirectoryContents(templateDir, destDir, contentDir, options) {
-  const summary = {
-    copied: 0,
-    overwritten: 0,
-    skipped: 0,
-  };
-  ensureDir(destDir, options.dryRun);
-
-  const entries = fs.readdirSync(templateDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile()) {
-      continue;
-    }
-    const src = path.join(templateDir, entry.name);
-    const dest = path.join(destDir, entry.name);
-    const exists = fs.existsSync(dest);
-
-    if (exists && !options.force) {
-      summary.skipped += 1;
-      continue;
-    }
-
-    const rendered = renderTemplate(src, contentDir, options);
-    if (rendered === null) {
-      summary.skipped += 1;
-      continue;
-    }
-
-    if (!options.dryRun) {
-      ensureDir(destDir, false);
-      fs.writeFileSync(dest, rendered, "utf8");
-    }
-    summary[exists ? "overwritten" : "copied"] += 1;
-  }
-
-  return summary;
-}
-
 function installToRoot(rootPath, promptsDest, sourceRoot, contentRoot, agent, options, skillsDestOverride) {
   const profile = TOOL_PROFILES[agent];
   const promptsSrc = path.join(sourceRoot, "prompts");
@@ -529,6 +508,7 @@ function installToRoot(rootPath, promptsDest, sourceRoot, contentRoot, agent, op
     copied: 0,
     overwritten: 0,
     skipped: 0,
+    files: [],
   };
 
   if (promptsDest) {
@@ -536,6 +516,11 @@ function installToRoot(rootPath, promptsDest, sourceRoot, contentRoot, agent, op
   }
   if (!profile.skipAgents) {
     mergeSummary(summary, renderEntitiesFromContent(agentsSrc, agentsDest, contentRoot, "agents", profile.agentExt, options));
+  }
+  if (profile.ruleDir) {
+    // Rules reuse the prompt shell template — Qoder rules are plain markdown
+    // with a name/description frontmatter, exactly like opencode prompts.
+    mergeSummary(summary, renderEntitiesFromContent(promptsSrc, path.join(rootPath, profile.ruleDir), contentRoot, "rules", ".md", options));
   }
 
   const contentSkillsDir = path.join(contentRoot, "skills");
@@ -567,7 +552,7 @@ function collectPromptFiles(promptDir) {
   }
   return fs
     .readdirSync(promptDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^es-change-.*\.prompt\.md$/i.test(entry.name))
+    .filter((entry) => entry.isFile() && /^es-.*\.prompt\.md$/i.test(entry.name))
     .map((entry) => path.join(promptDir, entry.name));
 }
 
@@ -589,7 +574,15 @@ function inferAgentNamesFromPrompts(promptFiles) {
 }
 
 function syncTemplates(args, templatesDir, dryRun, force) {
+  const availableProfiles = fs.readdirSync(templatesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(templatesDir, entry.name, "agents")))
+    .map((entry) => entry.name);
+  if (!availableProfiles.includes(args.templateProfile)) {
+    throw new Error(`Unknown template profile '${args.templateProfile}'. Available profiles: ${availableProfiles.join(", ")}.`);
+  }
+
   const profileDir = path.join(templatesDir, args.templateProfile);
+  const contentRoot = resolveContentRoot(templatesDir);
   const promptDestDir = path.join(profileDir, "prompts");
   const agentDestDir = path.join(profileDir, "agents");
   const skillDestDir = path.join(profileDir, "skills");
@@ -605,7 +598,7 @@ function syncTemplates(args, templatesDir, dryRun, force) {
   const summary = {
     prompts: { copied: 0, overwritten: 0, skipped: 0 },
     agents: { copied: 0, overwritten: 0, skipped: 0, missing: [] },
-    skills: { copied: 0, overwritten: 0, skipped: 0 },
+    skills: { copied: 0, overwritten: 0, skipped: 0, files: [] },
   };
 
   for (const srcPromptFile of promptFiles) {
@@ -615,18 +608,21 @@ function syncTemplates(args, templatesDir, dryRun, force) {
   }
 
   for (const agentName of agentNames) {
-    const srcAgentFile = path.join(args.sourceAgents, `${agentName}.md`);
-    if (!fs.existsSync(srcAgentFile)) {
+    // Accept both the official Copilot .agent.md naming and plain .md sources.
+    const srcAgentFile = [`${agentName}.agent.md`, `${agentName}.md`]
+      .map((name) => path.join(args.sourceAgents, name))
+      .find((file) => fs.existsSync(file));
+    if (!srcAgentFile) {
       summary.agents.missing.push(agentName);
       continue;
     }
-    const destAgentFile = path.join(agentDestDir, `${agentName}.md`);
+    const destAgentFile = path.join(agentDestDir, path.basename(srcAgentFile));
     const result = copyFileWithPolicy(srcAgentFile, destAgentFile, { force, dryRun });
     summary.agents[result] += 1;
   }
 
   if (args.sourceSkills && fs.existsSync(args.sourceSkills)) {
-    mergeSummary(summary.skills, copySkillDirectory(args.sourceSkills, skillDestDir, { force, dryRun }));
+    mergeSummary(summary.skills, copySkillDirectory(args.sourceSkills, skillDestDir, contentRoot, { force, dryRun }));
   }
 
   return {
@@ -699,6 +695,170 @@ function applyModelSelectionsToRoot(rootPath, selection, dryRun) {
   }
 
   return summary;
+}
+
+function resolveDestRoots(agent, scope, workspace) {
+  const profile = TOOL_PROFILES[agent];
+  if (scope === "project") {
+    const root = getProjectRoot(agent, workspace);
+    return {
+      root,
+      prompts: path.join(root, profile.promptDir),
+      agents: profile.skipAgents ? null : path.join(root, profile.agentDir),
+      skills: path.join(root, profile.skillDir),
+      rules: profile.ruleDir ? path.join(root, profile.ruleDir) : null,
+    };
+  }
+
+  const homeRoot = getHomeRoot(agent);
+  const globalSkillBase = profile.globalSkillHome ? path.join(os.homedir(), profile.globalSkillHome) : null;
+  return {
+    root: homeRoot,
+    prompts: resolveGlobalPromptDir(agent, homeRoot),
+    agents: profile.skipAgents ? null : path.join(homeRoot, profile.agentDir),
+    skills: globalSkillBase ? path.join(globalSkillBase, profile.skillDir) : path.join(homeRoot, profile.skillDir),
+    rules: profile.ruleDir ? path.join(homeRoot, profile.ruleDir) : null,
+  };
+}
+
+function expectedEntityNames(contentRoot) {
+  const bodyNames = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".body.md"))
+    .map((entry) => entry.name.replace(/\.body\.md$/, ""));
+
+  const rulesDir = path.join(contentRoot, "rules");
+  return {
+    prompts: bodyNames(path.join(contentRoot, "prompts")),
+    agents: bodyNames(path.join(contentRoot, "agents")),
+    skills: fs.readdirSync(path.join(contentRoot, "skills"), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name),
+    rules: fs.existsSync(rulesDir) ? bodyNames(rulesDir) : [],
+  };
+}
+
+function listEsEntries(dirPath, { dirs = false } = {}) {
+  if (!dirPath || !fs.existsSync(dirPath)) {
+    return [];
+  }
+  return fs.readdirSync(dirPath, { withFileTypes: true })
+    .filter((entry) => (dirs ? entry.isDirectory() : entry.isFile()) && entry.name.startsWith("es-"))
+    .map((entry) => entry.name);
+}
+
+function inspectCategory(profile, kind, dir, expectedNames) {
+  if (kind === "skill") {
+    const missing = expectedNames.filter((name) => !fs.existsSync(path.join(dir, name, "SKILL.md")));
+    const extra = listEsEntries(dir, { dirs: true }).filter((name) => !expectedNames.includes(name));
+    return { missing, extra };
+  }
+
+  const ext = kind === "prompt" ? profile.promptExt : kind === "agent" ? profile.agentExt : ".md";
+  const missing = expectedNames.filter((name) => !fs.existsSync(path.join(dir, `${name}${ext}`)));
+  const extra = listEsEntries(dir)
+    .map((name) => name.replace(/(?:\.prompt|\.agent)?\.md$/i, ""))
+    .filter((name) => !expectedNames.includes(name));
+  return { missing, extra };
+}
+
+function listInstalled(args, agents, scope, templatesDir) {
+  const expected = expectedEntityNames(resolveContentRoot(templatesDir));
+
+  for (const agent of agents) {
+    const profile = TOOL_PROFILES[agent];
+    const dests = resolveDestRoots(agent, scope, args.workspace);
+    console.log(`[easyspec-init] ${agent} (${scope}) — root: ${dests.root}`);
+
+    const categories = [
+      ["prompts", dests.prompts, expected.prompts, "prompt"],
+      ["agents", dests.agents, expected.agents, "agent"],
+      ["rules", dests.rules, expected.rules, "prompt"],
+      ["skills", dests.skills, expected.skills, "skill"],
+    ];
+
+    for (const [label, dir, names, kind] of categories) {
+      if (!dir || (names.length === 0 && listEsEntries(dir, { dirs: kind === "skill" }).length === 0)) {
+        continue;
+      }
+      const { missing, extra } = inspectCategory(profile, kind, dir, names);
+      const status = missing.length === 0 ? `complete (${names.length})` : `${names.length - missing.length}/${names.length} installed`;
+      const notes = [];
+      if (missing.length > 0) {
+        notes.push(`missing: ${missing.join(", ")}`);
+      }
+      if (extra.length > 0) {
+        notes.push(`extra es-* entries: ${extra.join(", ")}`);
+      }
+      console.log(`  ${label.padEnd(8)} ${status}${notes.length > 0 ? ` — ${notes.join("; ")}` : ""}`);
+      console.log(`           ${dir}`);
+    }
+  }
+}
+
+function uninstallInstalled(args, agents, scope) {
+  let fileCount = 0;
+  let dirCount = 0;
+
+  for (const agent of agents) {
+    const dests = resolveDestRoots(agent, scope, args.workspace);
+    console.log(`[easyspec-init] ${agent} (${scope}) — root: ${dests.root}`);
+
+    const targets = [];
+    for (const dir of [dests.prompts, dests.agents, dests.rules]) {
+      for (const name of listEsEntries(dir)) {
+        targets.push({ target: path.join(dir, name), isDir: false });
+      }
+    }
+    for (const name of listEsEntries(dests.skills, { dirs: true })) {
+      targets.push({ target: path.join(dests.skills, name), isDir: true });
+    }
+
+    for (const { target, isDir } of targets) {
+      const label = isDir ? "skill dir" : "file";
+      if (args.dryRun) {
+        console.log(`  would remove ${label}: ${target}`);
+      } else {
+        fs.rmSync(target, { recursive: true, force: true });
+        console.log(`  removed ${label}: ${target}`);
+      }
+      if (isDir) {
+        dirCount += 1;
+      } else {
+        fileCount += 1;
+      }
+    }
+  }
+
+  console.log(`[easyspec-init] ${args.dryRun ? "would remove" : "removed"} ${fileCount} file(s) and ${dirCount} skill dir(s).`);
+}
+
+async function resolveAgentSelection(args, { defaultAll = false } = {}) {
+  let agents = args.agents;
+  if (process.stdin.isTTY && !args.agentsExplicit) {
+    agents = await promptForAgents();
+  }
+  if (!agents || agents.length === 0) {
+    agents = defaultAll ? SUPPORTED_AGENTS.slice() : ["copilot"];
+  }
+
+  for (const agent of agents) {
+    if (!SUPPORTED_AGENTS.includes(agent)) {
+      throw new Error(`Unsupported --agent value '${agent}'. Currently supported: ${SUPPORTED_AGENTS.join(", ")}.`);
+    }
+  }
+
+  return agents;
+}
+
+async function resolveScopeSelection(args, agents) {
+  let scope = args.scope;
+  if (process.stdin.isTTY && !args.scopeExplicit) {
+    scope = await promptForScope(agents);
+  }
+  if (!["project", "global"].includes(scope)) {
+    throw new Error(`Invalid --scope value '${scope}'. Use project or global.`);
+  }
+  return scope;
 }
 
 async function promptForAgents() {
@@ -780,31 +940,26 @@ export async function runCli(argv) {
     return;
   }
 
-  if (args.command !== "init") {
-    throw new Error(`Unknown command '${args.command}'. Supported: init, sync.`);
-  }
-
-  let agents = args.agents;
-  if (process.stdin.isTTY && !args.agentsExplicit) {
-    agents = await promptForAgents();
-  }
-  if (!agents || agents.length === 0) {
-    agents = ["copilot"];
-  }
-
-  for (const agent of agents) {
-    if (!SUPPORTED_AGENTS.includes(agent)) {
-      throw new Error(`Unsupported --agent value '${agent}'. Currently supported: ${SUPPORTED_AGENTS.join(", ")}.`);
+  if (args.command === "list" || args.command === "uninstall") {
+    if (args.command === "uninstall" && !args.agentsExplicit && !process.stdin.isTTY) {
+      throw new Error("uninstall requires an explicit --agent value when not running interactively.");
     }
+    const selected = await resolveAgentSelection(args, { defaultAll: args.command === "list" });
+    const scope = await resolveScopeSelection(args, selected);
+    if (args.command === "list") {
+      listInstalled(args, selected, scope, templatesDir);
+    } else {
+      uninstallInstalled(args, selected, scope);
+    }
+    return;
   }
 
-  let scope = args.scope;
-  if (process.stdin.isTTY && !args.scopeExplicit) {
-    scope = await promptForScope(agents);
+  if (args.command !== "init") {
+    throw new Error(`Unknown command '${args.command}'. Supported: init, list, uninstall, sync.`);
   }
-  if (!["project", "global"].includes(scope)) {
-    throw new Error(`Invalid --scope value '${scope}'. Use project or global.`);
-  }
+
+  const agents = await resolveAgentSelection(args);
+  const scope = await resolveScopeSelection(args, agents);
 
   const contentRoot = resolveContentRoot(templatesDir);
   if (!fs.existsSync(contentRoot)) {
@@ -826,18 +981,8 @@ export async function runCli(argv) {
       throw new Error(`Template directory not found: ${sourceRoot}`);
     }
 
-    if (scope === "project") {
-      const projectRoot = getProjectRoot(agent, args.workspace);
-      const promptsDest = path.join(projectRoot, TOOL_PROFILES[agent].promptDir);
-      installReports.push(installToRoot(projectRoot, promptsDest, sourceRoot, contentRoot, agent, options));
-    } else {
-      const homeRoot = getHomeRoot(agent);
-      const promptsDest = resolveGlobalPromptDir(agent, homeRoot);
-      const profile = TOOL_PROFILES[agent];
-      const globalSkillBase = profile.globalSkillHome ? path.join(os.homedir(), profile.globalSkillHome) : null;
-      const skillsDestOverride = globalSkillBase ? path.join(globalSkillBase, profile.skillDir) : undefined;
-      installReports.push(installToRoot(homeRoot, promptsDest, sourceRoot, contentRoot, agent, options, skillsDestOverride));
-    }
+    const dests = resolveDestRoots(agent, scope, args.workspace);
+    installReports.push(installToRoot(dests.root, dests.prompts, sourceRoot, contentRoot, agent, options, dests.skills));
   }
 
   console.log(`[easyspec-init] agent target(s): ${agents.join(", ")}`);
@@ -849,6 +994,11 @@ export async function runCli(argv) {
       console.log(`  prompts -> ${report.promptsDest}`);
     }
     console.log(`  copied=${report.copied} overwritten=${report.overwritten} skipped=${report.skipped}`);
+    if (args.dryRun && Array.isArray(report.files)) {
+      for (const record of report.files) {
+        console.log(`  [${record.action}] ${record.path}`);
+      }
+    }
     if (!TOOL_PROFILES[report.agent].skipAgents) {
       agentDirs.add(path.join(report.rootPath, "agents"));
     }
@@ -856,6 +1006,9 @@ export async function runCli(argv) {
 
   let modelUpdates = 0;
   for (const report of installReports) {
+    if (report.agent !== "copilot") {
+      continue; // model frontmatter only exists in Copilot agent files
+    }
     const result = applyModelSelectionsToRoot(report.rootPath, modelSelection, args.dryRun);
     modelUpdates += result.updated;
   }
@@ -865,6 +1018,11 @@ export async function runCli(argv) {
     console.log(`[easyspec-init] model preset applied: ${modelSelection.preset}`);
   }
   console.log(`[easyspec-init] ${args.dryRun ? "would update" : "updated"} model settings in ${modelUpdates} agent file(s).`);
+
+  const nonCopilotAgents = agents.filter((agent) => agent !== "copilot");
+  if (nonCopilotAgents.length > 0 && (modelSelection.technicalModel !== "auto" || modelSelection.nonTechnicalModel !== "auto")) {
+    console.warn(`[easyspec-init] note: model settings only apply to Copilot agent files (no effect on: ${nonCopilotAgents.join(", ")})`);
+  }
 
   console.log("[easyspec-init] reminder: models default to auto — review installed *.md agent model values if you want per-agent overrides.");
   for (const agentDir of agentDirs) {

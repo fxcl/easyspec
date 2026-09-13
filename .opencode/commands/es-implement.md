@@ -1,11 +1,11 @@
 ---
-name: es-change-apply
-description: 'es-change-apply command'
+name: es-implement
+description: 'es-implement command'
 ---
 
 Implement a change by orchestrating the developer and es-tester agents against the prepared change docs.
 
-**Input**: Optionally specify a change name (e.g., `/es-change-apply add-dark-mode`). If omitted, list available changes and ask the user to select.
+**Input**: Optionally specify a change name (e.g., `/es-implement add-dark-mode`). If omitted, list available changes and ask the user to select.
 
 ---
 
@@ -37,7 +37,7 @@ Read all existing files in `docs/changes/<name>/`:
 8. `data-model.md` — (if exists) Data model changes
 
 Also read:
-- `.github/skills/es-change-lifecycle/SKILL.md` for document format conventions
+- Load the es-lifecycle skill for document format conventions
 - `docs/config.yaml` for project source paths, tech stack, and conventions
 
 ---
@@ -46,11 +46,11 @@ Also read:
 
 **If `implementation-plan.md` is missing or has no tasks**:
 Delegate to **es-developer agent** to create it:
-> "Read all change docs in `docs/changes/<name>/` and `docs/config.yaml`. Create `docs/changes/<name>/implementation-plan.md` with an ordered task list, phases, and clear done conditions for each task. Load `.github/skills/es-change-lifecycle/SKILL.md`."
+> "Read all change docs in `docs/changes/<name>/` and `docs/config.yaml`. Create `docs/changes/<name>/implementation-plan.md` with an ordered task list, phases, and clear done conditions for each task. Load the es-lifecycle skill."
 
 **If any prerequisite docs are missing** (prd.md or tech-spec.md not found):
 Pause and tell the user:
-> "Missing required doc: `<filename>`. Run `/es-change-propose <name>` first to create all change docs."
+> "Missing required doc: `<filename>`. Run `/es-propose <name>` first to create all change docs."
 
 **Validate `implementation-plan.md` format** before proceeding:
 
@@ -107,7 +107,7 @@ Delegate to **es-database-designer agent**:
 
 Wait for completion before proceeding to implementation.
 
-**Note**: Master data-model docs (`docs/master/data-model/`) are updated by `/es-change-update-master` — do NOT update them here.
+**Note**: Master data-model docs (`docs/master/data-model/`) are updated by `/es-update-master` — do NOT update them here.
 
 ---
 
@@ -128,7 +128,7 @@ Delegate to **es-developer agent** with full context:
 > 3. Update `tech-spec.md` Code Reference Map with any new/changed code locations
 > 4. Proceed to next task
 >
-> Load `.github/skills/es-change-lifecycle/SKILL.md` for code reference map format.
+> Load the es-lifecycle skill for code reference map format.
 >
 > Pause and report if any task is blocked or unclear."
 
@@ -364,7 +364,7 @@ agents_complete:
 <summary from es-tester agent — must include pass counts for backend, frontend, and e2e>
 
 ### Next Steps
-Run `/es-change-update-master` to apply changes to master product docs.
+Run `/es-update-master` to apply changes to master product docs.
 ```
 
 ---
@@ -449,7 +449,7 @@ The demo will use the curated scenarios from `docs/changes/<name>/demo-cases.md`
 - **Yes, full demo** → `/demo-app --cases docs/changes/<name>/demo-cases.md --speed normal`
 - **Yes, specific feature** → Tell me which scenario (e.g., "notifications", "scheduling")
 - **Yes, let me control it** → `/demo-app --cases docs/changes/<name>/demo-cases.md --pause`
-- **No thanks** → Proceed to `/es-change-update-master` to update master product docs
+- **No thanks** → Proceed to `/es-update-master` to update master product docs
 
 Type your choice or just say "demo" to start the full demo.
 ```
@@ -460,7 +460,7 @@ If the user says yes (any variant):
 - Manual control → invoke `/demo-app --cases docs/changes/<name>/demo-cases.md --pause`
 
 After the demo completes, remind the user:
-> "Run `/es-change-update-master` to apply changes to master product docs."
+> "Run `/es-update-master` to apply changes to master product docs."
 
 ---
 
@@ -482,7 +482,7 @@ If the es-developer agent encounters a blocker:
 2. <suggested resolution 2>
 3. Clarify requirements and update change docs
 
-Resume with `/es-change-apply <name>` after resolving.
+Resume with `/es-implement <name>` after resolving.
 ```
 
 ---
