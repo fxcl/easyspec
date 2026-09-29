@@ -1,10 +1,5 @@
 # easyspec — Spec-Driven Development Kit for AI Coding Agents
 
-[![npm version](https://img.shields.io/npm/v/@myaider/easyspec.svg)](https://www.npmjs.com/package/@myaider/easyspec)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
-[![Downloads](https://img.shields.io/npm/dm/@myaider/easyspec.svg)](https://www.npmjs.com/package/@myaider/easyspec)
-
 **One `init` command. A team of AI agents. Your entire software lifecycle — managed by specs, not chaos.**
 
 Supports **GitHub Copilot**, **OpenCode**, **Claude Code**, **ZCode**, **Qoder**, and **Kilo Code**.
@@ -26,13 +21,13 @@ The same spec-driven pipeline that keeps the code clean also keeps the UI consis
 **Recommended** — install globally:
 
 ```bash
-npm install -g @myaider/easyspec
+npm install -g @fnnm/easyspec
 ```
 
 **Try without installing:**
 
 ```bash
-npx @myaider/easyspec init
+npx @fnnm/easyspec init
 ```
 
 ## Usage
